@@ -73,7 +73,10 @@
                   <img src="../static/images/doc_submit.png" class="doc_img">
                   <p class="explain_area">For single work, you must enter the job name and upload the paired-end fastq file.
                     <br>Supported format include fastq, fq, and fq.gz.
-                    <br>Fill in everything, click submit, and your work will be registered on the server
+                    <br>Fill in everything, click submit, and your work will be registered on the server.
+                    <br>
+                    <br>Try PenusPage with sample data(ERR11640725). 
+                    <br><b>You can download HERE(<a href="/submit/forward/download">forward</a>, <a href="/submit/reverse/download">reverse</a>) and submit page. </b>
                   </p>
                   <h4>Multi task</h4>
                   <img src="../static/images/doc_submit_multi.png" class="doc_img">
@@ -87,11 +90,33 @@
                 <div id="result_area" class="section">
                   <h3>Result Page</h3>
                   <img src="../static/images/doc_result.png" class="doc_img">
+                  <p class="explain_area">
+                    <br>If your job is successfully submitted, you will be redirected to the result page. 
+                    <br>On the result page, you can check and manage the jobs you have submitted so far.
+                    <br>The status is divided into four stages: <b>queue, running, complete, and fail.</b>
+                    <br>
+                    <br>"Queue" indicates that your job is waiting in line.
+                    <br>"Running" means that your job is currently being processed.
+                    <br>"Complete" indicates that your job has been successfully completed. At this point, the table row will turn green, and by clicking on it, you can view the details of the job result.
+                    <br>"Fail" signifies that there was an issue with your job. If this problem persists, please contact the PneusPage administrator at <b>"iu98@dgu.ac.kr"</b>
+                  </p>
                 </div>
                 <hr>
                 <div id="detail_area" class="section">
                   <h3>Details Page</h3>
-                  <img src="../static/images/doc_detail.png" class="doc_img" style="width: 1200px;">
+                  <img src="../static/images/detail_whole.PNG" class="doc_img" style="width: 1200px;">
+                  <p class="explain_area"></p>
+                    <br>When you click on a job in the "Complete" status, you will be taken to the detail page. This page contains detailed information about each job.
+                    <br>
+                    <br><b>The information you can obtain includes the following: </b>
+                    <br>- raw data QC
+                    <br>- assembled scaffold
+                    <br>- assembled genome QC
+                    <br>- species prediction
+                    <br>- predicted serotype
+                    <br>- gene annotation
+                    <br>- MLST, cgMLST, GPSC, AMR detection, virulence factor, MEG, plasmid type, and PBP typing.
+                  </p>
                 </div>
               </div>
             </div>
@@ -99,7 +124,7 @@
         </div>
         <footer class="text-center text-lg-start bg-light text-muted">
           <div class="text-center p-4" style="background-color: rgba(0, 0, 0, 0.05);">
-            © 2023 Copyright:
+            © 2024 Copyright:
             <a class="text-reset fw-bold" href="https://lab.minholee.net/">Minho Lee LAB</a> @Dongguk univ.
           </div>
         </footer>
