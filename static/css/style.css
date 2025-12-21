@@ -2,6 +2,7 @@
 body {
     background-color: white;
     font-family: 'Noto Sans KR', sans-serif;
+    height: 100vh;
 }
 
 #page_name {
