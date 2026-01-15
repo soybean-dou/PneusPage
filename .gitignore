@@ -1,12 +1,109 @@
-static/node_modules
-user/
-htslib/
+# Environment variables
+.env
+
+# Python
 __pycache__/
-node_modules/
-*.json
-reference/
-pneumo_service.db
-*.ipynb
-sample/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
 logs/
-logs/pneuspage.log
+*.log
+log.txt
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# User data (uploaded files and analysis results)
+user/
+!user/.gitkeep
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+htslib/
+fastqc/
+kraken/
+spades/
+quast/
+prokka/
+mge/
+cgMLST/
+mlst/
+virulence/
+AMR/
+plasmid/
+pbptyping/
+seroba/
+poppunk/
+blast/
+
+# Node modules
+static/node_modules/
+node_modules/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Google OAuth secrets (keep example, ignore actual)
+client_secret.json
+!client_secret.json.example
+
+# Reference data
+reference/
+
+# Sample data
+sample/
+
+# SLURM output
+*.out
+*.err
+sbatch.sh
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
