@@ -1,6 +1,13 @@
 import os
-import pathlib
+import sys
+from pathlib import Path
+import logging
+from logging.handlers import RotatingFileHandler
+
 import requests
+import pandas as pd
+import numpy as np
+import jsonpickle
 from flask import Flask, redirect, request, url_for, jsonify, render_template, abort, session, send_file, flash
 from flask_bootstrap import Bootstrap
 from werkzeug.utils import secure_filename
@@ -8,30 +15,62 @@ from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
 from pip._vendor import cachecontrol
 import google.auth.transport.requests
-import sys
 
-import multiprocessing
-import pandas as pd
-import numpy as np
-import sqlite3
-import jsonpickle
-import logging
-import db
+# Import application modules
+from config import Config, get_config
+from models import db, User, Job
+import db as db_operations
 import run_pipeline as rp
+from services import UserService, JobService
 
-logging.basicConfig(filename="logs/pneuspage.log",level=logging.DEBUG)
-
+# Initialize Flask app
 app = Flask(__name__)
-app.debug = True
 
-app.secret_key = "minory"  #it is necessary to set a password when dealing with OAuth 2.0
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"  #this is to set our environment to https because OAuth 2.0 only supports https environments
+# Load configuration
+config_name = os.getenv('FLASK_ENV', 'development')
+app_config = get_config(config_name)
+app.config.from_object(app_config)
 
-flow = Flow.from_client_secrets_file(  
-    client_secrets_file="client_secret.json",
-    scopes=["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email", "openid"],  
-    redirect_uri="https://pneuspage.minholee.net/callback"
-)
+# Initialize configuration
+app_config.init_app(app)
+
+# Initialize database
+db.init_app(app)
+
+# Setup logging
+if not app.debug:
+    app_config.LOG_DIR.mkdir(parents=True, exist_ok=True)
+    file_handler = RotatingFileHandler(
+        app_config.LOG_FILE,
+        maxBytes=10 * 1024 * 1024,
+        backupCount=10
+    )
+    file_handler.setFormatter(logging.Formatter(app_config.LOG_FORMAT))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Pneumo Page startup')
+else:
+    logging.basicConfig(
+        filename=str(app_config.LOG_FILE),
+        level=logging.DEBUG,
+        format=app_config.LOG_FORMAT
+    )
+
+# Allow HTTP for OAuth in development only
+if app.debug:
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
+# Initialize Google OAuth Flow
+try:
+    flow = Flow.from_client_secrets_file(
+        client_secrets_file=str(app_config.GOOGLE_CLIENT_SECRETS_FILE),
+        scopes=app_config.GOOGLE_SCOPES,
+        redirect_uri=app_config.GOOGLE_REDIRECT_URI
+    )
+except Exception as e:
+    app.logger.error(f"Failed to initialize OAuth flow: {e}")
+    flow = None
 
 @app.route("/login")  #the page where the user can login
 def login():
@@ -48,34 +87,51 @@ def login_with_google():
     return redirect(authorization_url)
 
 
-@app.route("/callback")  #this is the page that will handle the callback process meaning process after the authorization
+@app.route("/callback")  # OAuth callback handler
 def callback():
-    flow.fetch_token(authorization_response=request.url)
+    try:
+        if flow is None:
+            app.logger.error("OAuth flow not initialized")
+            flash("Authentication system error. Please contact administrator.")
+            return redirect("/")
+        
+        flow.fetch_token(authorization_response=request.url)
 
-    if not session["state"] == request.args["state"]:
-        abort(500)  #state does not match!
+        if not session.get("state") == request.args.get("state"):
+            app.logger.warning("OAuth state mismatch")
+            abort(500)  # State does not match!
 
-    credentials = flow.credentials
-    CLIENT_ID = flow.client_config["client_id"]
-    request_session = requests.session()
-    cached_session = cachecontrol.CacheControl(request_session)
-    token_request = google.auth.transport.requests.Request(session=cached_session)
+        credentials = flow.credentials
+        CLIENT_ID = flow.client_config["client_id"]
+        request_session = requests.session()
+        cached_session = cachecontrol.CacheControl(request_session)
+        token_request = google.auth.transport.requests.Request(session=cached_session)
 
-    id_info = id_token.verify_oauth2_token(
-        id_token=credentials._id_token,
-        request=token_request,
-        audience=CLIENT_ID
-    )
+        id_info = id_token.verify_oauth2_token(
+            id_token=credentials._id_token,
+            request=token_request,
+            audience=CLIENT_ID
+        )
 
-    id_info["user_key"]=id_info["sub"]
-    session["user_info"]= id_info
-    session["user_key"]= id_info["sub"]
-    session["email"]=id_info.get("email")
-    session["name"] = id_info.get("name")
-    print(id_info)
-    if not db.is_joined(id_info["user_key"]):
-        db.insert_user(id_info)
-    return redirect("/")  #the final page where the authorized users will end up
+        # Store user info in session
+        id_info["user_key"] = id_info["sub"]
+        session["user_info"] = id_info
+        session["user_key"] = id_info["sub"]
+        session["email"] = id_info.get("email")
+        session["name"] = id_info.get("name")
+        
+        app.logger.info(f"User logged in: {id_info.get('email')}")
+        
+        # Create user if not exists
+        if not UserService.is_user_registered(id_info["user_key"]):
+            UserService.create_user(id_info)
+        
+        return redirect("/")
+        
+    except Exception as e:
+        app.logger.error(f"OAuth callback error: {e}")
+        flash("Login failed. Please try again.")
+        return redirect("/")
 
 
 @app.route("/logout")  #the logout page and function
@@ -120,137 +176,136 @@ def submit():
 @app.route('/upload', methods=['POST'])
 def upload():
     if request.method == 'POST':
-        os.chdir("/home/iu98/pneumo_page")
-        user_info={
-            "user_key":session["user_key"],
-            "username":session["name"]
+        try:
+            user_info = {
+                "user_key": session["user_key"],
+                "username": session["name"]
             }
-        print(request.form)
-        jobname=request.form.get('jobname')
-        
-        job_key=db.read_job_num(user_info['user_key'])
-        print("job key :",job_key)
+            
+            jobname = request.form.get('jobname')
+            if not jobname:
+                flash("Job name is required!")
+                return redirect("/submit")
+            
+            # Get next job number
+            job_key = JobService.get_next_job_number(user_info['user_key'])
+            app.logger.info(f"Creating job {job_key} for user {user_info['user_key']}")
 
-        #print("./user/"+str(user_info['user_key'])+"/"+str(job_key))
-        if not os.path.exists("./user/"+str(user_info['user_key'])+"/"+str(job_key)):
-            os.system("mkdir ./user/"+str(user_info['user_key'])+"/"+str(job_key))
-            print("make ./user/"+str(user_info['user_key'])+"/"+str(job_key))
-        else :
-            data = {'result': 'err'}
-            return jsonpickle.encode(data)
-        
-        print("read files...")
-        files =  request.files.getlist("file[]")
-        job_info={'user_key':user_info['user_key'],
-                    "jobname":jobname,
-                    "job_key":job_key,
-                    "file1":"NULL",
-                    "file2":"NULL"
-                }
-                
-        if files:
-            print(files)
-            for i in range(len(files)):
-                f=files[i]
-                f.save(os.path.join(("./user/"+str(user_info['user_key'])),str(job_key), secure_filename(f.filename)))
-                
-                if job_info[f'file{str(i+1)}']=="NULL":
-                    job_info[f'file{str(i+1)}']=secure_filename(f.filename)
-
-            db.insert_job(user_info,job_info)
-            print("job key :",job_info["job_key"])
-
-            #process = multiprocessing.Process(target=run_with_web, args=(user_info['user_key'], job_info))
-
-            run_slurm(user_info["user_key"],job_info)
-            #process.start()
-            data = {'result': 'success'} 
+            # Create job directory
+            try:
+                job_dir = JobService.create_job_directory(user_info['user_key'], job_key)
+            except FileExistsError:
+                flash("Job directory already exists. Please try again.")
+                return redirect("/submit")
+            
+            # Process uploaded files
+            files = request.files.getlist("file[]")
+            try:
+                saved_files = JobService.save_uploaded_files(job_dir, files)
+            except ValueError as e:
+                flash(str(e))
+                return redirect("/submit")
+            
+            # Create job info
+            job_info = {
+                'user_key': user_info['user_key'],
+                "jobname": jobname,
+                "job_key": job_key,
+                "file1": saved_files['file1'],
+                "file2": saved_files['file2']
+            }
+            
+            # Insert job into database
+            JobService.create_job(user_info, job_info)
+            
+            # Submit to SLURM
+            JobService.submit_to_slurm(user_info["user_key"], job_info)
+            
+            flash(f"Job '{jobname}' submitted successfully!")
             return redirect(f"/result/{str(user_info['user_key'])}")
-        else:
-            flash("your file is invalid!")    
-            return redirect(f"/submit")
-    return redirect(f"/submit")
+            
+        except KeyError as e:
+            app.logger.error(f"Missing session key: {e}")
+            flash("Please log in to submit jobs.")
+            return redirect("/login")
+        except Exception as e:
+            app.logger.error(f"Upload error: {e}")
+            flash("An error occurred while uploading your files. Please try again.")
+            return redirect("/submit")
+    
+    return redirect("/submit")
 
 @app.route('/uploadMulti', methods=['POST'])
 def upload_multi():
     if request.method == 'POST':
-        os.chdir("/home/iu98/pneumo_page")
-        user_info={
-            "user_key":session["user_key"],
-            "username":session["name"]
+        try:
+            user_info = {
+                "user_key": session["user_key"],
+                "username": session["name"]
             }
-        
-        if not os.path.exists("./user/"+str(user_info['user_key'])+"/multi"):
-            os.system("mkdir ./user/"+str(user_info['user_key'])+"/multi")
-            print("make ./user/"+str(user_info['user_key'])+"/multi")
-
-        tsv =  request.files["file"]
-        tsv.save(os.path.join(("./user/"+str(user_info['user_key'])),"multi",secure_filename(tsv.filename)))
-        
-        file_list=pd.read_table(os.path.join(("./user/"+str(user_info['user_key'])),"multi",secure_filename(tsv.filename)),sep="\t",names=["jobs","read1","read2"])
-        print(file_list)
-        raws =  request.files.getlist("file[]")
-        raw_list=[]
-
-        if raws:
-            #파일이 모두 유효한 것들인지 확인
-            for i in range(len(raws)):
-                f=raws[i]
-                print(list(file_list["read1"]))
-                if f.filename in list(file_list["read1"]):
-                    raw_list.append(f.filename)
-                elif f.filename in list(file_list["read2"]):
-                    raw_list.append(f.filename)
+            
+            # Create multi directory for TSV file
+            multi_dir = JobService.create_multi_directory(user_info['user_key'])
+            
+            # Save TSV file
+            tsv = request.files["file"]
+            if not tsv or not tsv.filename:
+                flash("File list TSV is required!")
+                return redirect("/submit")
+            
+            from werkzeug.utils import secure_filename
+            tsv_path = multi_dir / secure_filename(tsv.filename)
+            tsv.save(str(tsv_path))
+            
+            # Read file list from TSV
+            file_list = pd.read_table(
+                tsv_path,
+                sep="\t",
+                names=["jobs", "read1", "read2"]
+            )
+            app.logger.info(f"Processing batch upload with {len(file_list)} jobs")
+            
+            # Get uploaded raw files
+            raws = request.files.getlist("file[]")
+            if not raws:
+                flash("No read files uploaded!")
+                return redirect("/submit")
+            
+            # Process batch upload
+            try:
+                jobs_created, errors = JobService.process_batch_upload(
+                    user_info['user_key'],
+                    user_info['username'],
+                    file_list,
+                    raws
+                )
+                
+                if errors:
+                    for error in errors:
+                        flash(error)
+                
+                if jobs_created > 0:
+                    flash(f"Successfully created {jobs_created} jobs!")
                 else:
-                    flash("Your file is invalid!") 
-                    return redirect(f"/submit")
-        else:
-            flash("Your file is invalid!")    
-            return redirect(f"/submit")
-
-        job_key=db.read_job_num(user_info['user_key'])
-        print("job key :",job_key)
-        
-        for i in range(len(file_list["jobs"])):
-            print("job key :",job_key)
-            job_info={'user_key':user_info['user_key'],
-                    "jobname":file_list.iloc[i,0],
-                    "job_key":job_key,
-                    "file1":file_list.iloc[i,1],
-                    "file2":file_list.iloc[i,2]
-                }
-            if not os.path.exists("./user/"+str(user_info['user_key'])+"/"+str(job_key)):
-                os.system("mkdir ./user/"+str(user_info['user_key'])+"/"+str(job_key))
-                print("make ./user/"+str(user_info['user_key'])+"/"+str(job_key))
-            else :
-                data = {'result': 'err'}
-                return jsonpickle.encode(data)
+                    flash("No jobs were created. Check errors above.")
+                
+            except ValueError as e:
+                flash(str(e))
+                return redirect("/submit")
             
-            #if raws:
-            idx=raw_list.index(job_info["file1"])
-            f=raws[idx]
-            f.save(os.path.join(("./user/"+str(user_info['user_key'])),str(job_key), secure_filename(f.filename)))
-
-            idx=raw_list.index(job_info["file2"])
-            f=raws[idx]
-            f.save(os.path.join(("./user/"+str(user_info['user_key'])),str(job_key), secure_filename(f.filename)))
+            return redirect(f"/result/{str(user_info['user_key'])}")
             
-            for j in range(2):
-                if job_info[f'file{str(j+1)}']=="NULL":
-                    job_info[f'file{str(j+1)}']=secure_filename(f.filename)
-
-            db.insert_job(user_info,job_info)
-            run_slurm(user_info["user_key"],job_info)
-            job_key+=1
-                #data = {'result': 'success'} 
-            #else:
-            #    data = {'result': 'err'}
-            #    return jsonpickle.encode(data)
-            
-        return redirect(f"/result/{str(user_info['user_key'])}")
+        except KeyError as e:
+            app.logger.error(f"Missing session key: {e}")
+            flash("Please log in to submit jobs.")
+            return redirect("/login")
+        except Exception as e:
+            app.logger.error(f"Batch upload error: {e}")
+            flash("An error occurred during batch upload. Please try again.")
+            return redirect("/submit")
     else:
-        flash("your file is invalid!")    
-        return redirect(f"/submit")
+        flash("Invalid request!")
+        return redirect("/submit")
 
 
 
@@ -263,117 +318,234 @@ def result_first():
 
 @app.route('/result/<user_key>')
 def result(user_key):
-    os.chdir("/home/iu98/pneumo_page")
-    if protected()!=False:
-        if(str(user_key)!=session['user_key'] and session['user_key']!="105794308045478426283"):
+    try:
+        if protected() == False:
+            return redirect("/")
+        
+        # Check permission
+        if not UserService.can_access_user_data(session['user_key'], user_key):
             flash("You do not have permission!")
             return redirect(f"/result/{session['user_key']}")
-        db_info=db.read_user_job(user_key)
-        db_df=pd.DataFrame.from_records(data = db_info,columns=["user_id","user_name","job_id","job_name","input_file","states","date"])
-        db_df["species"]=""
-        job_id=db_df["job_id"]
-        for i in job_id:
-            db_df.loc[db_df["job_id"]==i,"species"]=rp.get_species(user_key,str(i))
-        return render_template('result.html',rows=db_df, login=True,user_id=user_key)
-    else:
+        
+        # Get user's jobs
+        db_df = JobService.get_user_jobs(user_key)
+        
+        return render_template('result.html', rows=db_df, login=True, user_id=user_key)
+        
+    except Exception as e:
+        app.logger.error(f"Error displaying results: {e}")
+        flash("Error loading results.")
         return redirect("/") 
     
 
 @app.route('/result/<user_key>/<job_key>')
-def detail(user_key,job_key):
-    if protected()!=False:
-        is_logined=True
-    print(is_logined)
-    os.chdir("/home/iu98/pneumo_page")
-    db_info,cols=db.read_db_row(user_key,job_key)
-    data_df = pd.DataFrame.from_records(data=db_info, columns=cols)
-    files=data_df["input"][0].split("|")
-    species=rp.get_species(user_key,job_key)
-   
-    if species!="Streptococcus pneumoniae":
-        kraken, quast=rp.get_info(user_key,job_key)
-        return render_template('detail.html', login=is_logined, kraken=kraken, species=species, key=job_key, user_id=user_key, files=files, rows=db_info, quast=quast)
-    
-    species, quast, sero_bool, sero_txt, seroba, vir, mlst_info, mlst_val, mge, cgmlst, kraken, plasmid, amr, prokka, poppunk, pbp_category, pbp_agent=rp.get_info(user_key,job_key)
-    print(species, quast)
-    if "stop" in mge.columns :
-        mge.rename(columns={"stop":"end"},inplace=True)
-    
-    mge=mge.drop(columns=["contig","start","end"],axis=1)
-    #pl_key1=[]
-    #pl_key2=[]
-    #pl_pd=[]
-    #for key1 in plasmid.keys():
-    #    for key2 in plasmid[key1].keys():
-    #        if plasmid[key1][key2] != "No hit found":
-    #            pl_key1.append(key1)
-    #            pl_key2.append(key2)
-    #            pl_pd.append(pd.DataFrame(plasmid[key1][key2]))
-    #if request.method == 'GET':
-    #    rp.get_info(username,key,jobname)
-    return render_template('detail.html', login=is_logined, species=species,
-                           key=job_key, user_id=user_key, files=files, rows=db_info, sero_txt=sero_txt, seroba=seroba, vir=vir, mlst_info=mlst_info, mlst_val=mlst_val, 
-                           mge=mge, cgmlst=cgmlst, kraken=kraken,
-                           plasmid=plasmid, amr=amr, quast=quast, prokka=prokka, poppunk=poppunk, sero_bool=sero_bool, pbp_category=pbp_category, pbp_agent=pbp_agent)
+def detail(user_key, job_key):
+    try:
+        is_logined = protected() != False
+        
+        if not is_logined:
+            return redirect("/")
+        
+        # Check permission
+        if not UserService.can_access_user_data(session.get('user_key', ''), user_key):
+            flash("You do not have permission!")
+            return redirect("/")
+        
+        # Get job information
+        db_info, cols = db_operations.read_db_row(user_key, int(job_key))
+        
+        if not db_info:
+            flash("Job not found.")
+            return redirect(f"/result/{user_key}")
+        
+        data_df = pd.DataFrame.from_records(data=db_info, columns=cols)
+        files = data_df["input"][0].split("|")
+        species = rp.get_species(user_key, job_key)
+        
+        # If not S. pneumoniae, show basic results only
+        if species != "Streptococcus pneumoniae":
+            kraken, quast = rp.get_info(user_key, job_key)
+            return render_template(
+                'detail.html',
+                login=is_logined,
+                kraken=kraken,
+                species=species,
+                key=job_key,
+                user_id=user_key,
+                files=files,
+                rows=db_info,
+                quast=quast
+            )
+        
+        # Get full analysis results for S. pneumoniae
+        (species, quast, sero_bool, sero_txt, seroba, vir, mlst_info, mlst_val,
+         mge, cgmlst, kraken, plasmid, amr, prokka, poppunk,
+         pbp_category, pbp_agent) = rp.get_info(user_key, job_key)
+        
+        # Fix column name if needed
+        if "stop" in mge.columns:
+            mge.rename(columns={"stop": "end"}, inplace=True)
+        
+        mge = mge.drop(columns=["contig", "start", "end"], axis=1, errors='ignore')
+        
+        return render_template(
+            'detail.html',
+            login=is_logined,
+            species=species,
+            key=job_key,
+            user_id=user_key,
+            files=files,
+            rows=db_info,
+            sero_txt=sero_txt,
+            seroba=seroba,
+            vir=vir,
+            mlst_info=mlst_info,
+            mlst_val=mlst_val,
+            mge=mge,
+            cgmlst=cgmlst,
+            kraken=kraken,
+            plasmid=plasmid,
+            amr=amr,
+            quast=quast,
+            prokka=prokka,
+            poppunk=poppunk,
+            sero_bool=sero_bool,
+            pbp_category=pbp_category,
+            pbp_agent=pbp_agent
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Error displaying job details: {e}")
+        flash("Error loading job details.")
+        return redirect(f"/result/{user_key}")
 
 @app.route('/result/<user_key>/<job_key>/fastqc/<file_name>/download')
-def fastqc_download(user_key,job_key,file_name):
-    os.chdir("/home/iu98/pneumo_page")
-    file_name=file_name.split(".")[0]+"_fastqc.html"
-    path=os.path.join("./user",user_key,str(job_key),"fastqc",file_name)
-    return send_file(path, as_attachment=True)
+def fastqc_download(user_key, job_key, file_name):
+    try:
+        # Check permission
+        if not UserService.can_access_user_data(session.get('user_key', ''), user_key):
+            flash("You do not have permission!")
+            return redirect("/")
+        
+        file_name = file_name.split(".")[0] + "_fastqc.html"
+        path = app_config.USER_DATA_DIR / user_key / str(job_key) / "fastqc" / file_name
+        
+        if not path.exists():
+            flash("File not found.")
+            return redirect(f"/result/{user_key}/{job_key}")
+        
+        return send_file(str(path), as_attachment=True)
+    except Exception as e:
+        app.logger.error(f"Download error: {e}")
+        flash("Error downloading file.")
+        return redirect(f"/result/{user_key}/{job_key}")
 
 @app.route('/result/<user_key>/<job_key>/assembled_fasta/download')
-def assembled_fasta_download(user_key,job_key):
-    os.chdir("/home/iu98/pneumo_page")
-    path=os.path.join("./user",user_key,str(job_key),"spades","scaffolds.fasta")
-    return send_file(path, as_attachment=True)
+def assembled_fasta_download(user_key, job_key):
+    try:
+        # Check permission
+        if not UserService.can_access_user_data(session.get('user_key', ''), user_key):
+            flash("You do not have permission!")
+            return redirect("/")
+        
+        path = app_config.USER_DATA_DIR / user_key / str(job_key) / "spades" / "scaffolds.fasta"
+        
+        if not path.exists():
+            flash("File not found.")
+            return redirect(f"/result/{user_key}/{job_key}")
+        
+        return send_file(str(path), as_attachment=True)
+    except Exception as e:
+        app.logger.error(f"Download error: {e}")
+        flash("Error downloading file.")
+        return redirect(f"/result/{user_key}/{job_key}")
 
 @app.route('/result/<user_key>/<job_key>/gene_anot/download')
-def gene_annot_download(user_key,job_key):
-    os.chdir("/home/iu98/pneumo_page")
-    path=os.path.join("./user",user_key,str(job_key),"prokka","prokka.tsv")
-    return send_file(path, as_attachment=True)
+def gene_annot_download(user_key, job_key):
+    try:
+        # Check permission
+        if not UserService.can_access_user_data(session.get('user_key', ''), user_key):
+            flash("You do not have permission!")
+            return redirect("/")
+        
+        path = app_config.USER_DATA_DIR / user_key / str(job_key) / "prokka" / "prokka.tsv"
+        
+        if not path.exists():
+            flash("File not found.")
+            return redirect(f"/result/{user_key}/{job_key}")
+        
+        return send_file(str(path), as_attachment=True)
+    except Exception as e:
+        app.logger.error(f"Download error: {e}")
+        flash("Error downloading file.")
+        return redirect(f"/result/{user_key}/{job_key}")
 
 @app.route('/submit/tsv/download')
 def ex_tsv_download():
-    path=os.path.join(".","sample","file_list.tsv")
-    return send_file(path, as_attachment=True)
+    path = app_config.BASE_DIR / "sample" / "file_list.tsv"
+    return send_file(str(path), as_attachment=True)
 
 @app.route('/submit/forward/download')
 def ex_forward_download():
-    path=os.path.join(".","sample","ERR11640752_1.fastq.gz")
-    return send_file(path, as_attachment=True)
+    path = app_config.BASE_DIR / "sample" / "ERR11640752_1.fastq.gz"
+    return send_file(str(path), as_attachment=True)
 
 @app.route('/submit/reverse/download')
 def ex_reverse_download():
-    path=os.path.join(".","sample","ERR11640752_2.fastq.gz")
-    return send_file(path, as_attachment=True)
+    path = app_config.BASE_DIR / "sample" / "ERR11640752_2.fastq.gz"
+    return send_file(str(path), as_attachment=True)
     
 
 @app.route('/mypage')
 def mypage():
-    os.chdir("/home/iu98/pneumo_page")
-    date=db.read_user_db(session['user_key'])
-    return render_template('mypage.html',username=session["name"],email=session["email"],join_date=date["date"])
+    try:
+        if protected() == False:
+            return redirect("/login")
+        
+        date_info = UserService.get_user_info(session['user_key'])
+        join_date = date_info['date'] if date_info else 'Unknown'
+        
+        return render_template(
+            'mypage.html',
+            username=session["name"],
+            email=session["email"],
+            join_date=join_date
+        )
+    except Exception as e:
+        app.logger.error(f"Error loading mypage: {e}")
+        flash("Error loading your profile.")
+        return redirect("/")
 
-
-def run_slurm(user_key,job_info):
-    with open("./user/"+str(user_key)+"/"+str(job_info["job_key"])+"/sbatch.sh","w") as f:
-        f.write("#!/bin/sh\n\n#SBATCH -J pne_"+str(job_info["job_key"])+"\n#SBATCH --cpus-per-task=4\n#SBATCH --mem 70G\n#SBATCH -p lys\n#SBATCH -o "+str(job_info["job_key"])+".out\n#SBATCH -e "+str(job_info["job_key"])+".err\n\n")
-        f.write(f"python /home/iu98/pneumo_page/run_pipeline.py {str(user_key)} {str(job_info['job_key'])} {job_info['file1']} {job_info['file2']}")
-    os.chdir("./user/"+str(user_key)+"/"+str(job_info["job_key"]))
-    os.system(f"sbatch sbatch.sh")
-    os.chdir("/home/iu98/pneumo_page")
 
 @app.route('/result/<user_key>/<job_key>/delete')
-def delete_job(user_key,job_key):
-    os.chdir("/home/iu98/pneumo_page")
-    os.system("rm -r ./user/"+str(user_key)+"/"+str(job_key))
-    db.delete_user_job(user_key,job_key)
-    return redirect(f"/result/{session['user_key']}")
+def delete_job(user_key, job_key):
+    try:
+        if protected() == False:
+            return redirect("/login")
+        
+        # Check permission
+        if str(user_key) != session['user_key']:
+            flash("You do not have permission to delete this job!")
+            return redirect(f"/result/{session['user_key']}")
+        
+        # Delete job
+        if JobService.delete_job(user_key, int(job_key)):
+            flash(f"Job {job_key} deleted successfully.")
+        else:
+            flash(f"Failed to delete job {job_key}.")
+        
+        return redirect(f"/result/{session['user_key']}")
+        
+    except Exception as e:
+        app.logger.error(f"Error deleting job: {e}")
+        flash("Error deleting job.")
+        return redirect(f"/result/{session['user_key']}")
+
 
 if __name__ == '__main__':
-    sys.stdout = open('log.txt','a')
-    app.run(debug=True)
+    # Create database tables if they don't exist
+    with app.app_context():
+        db.create_all()
     
+    app.run(debug=app.debug, host='0.0.0.0', port=5000)
+
