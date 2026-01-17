@@ -2,15 +2,26 @@
 
 import os
 import sys
+import logging
 from pathlib import Path
 import pandas as pd
-import db
 import subprocess
 import zipfile
 import json
 import ast
 
-#import app
+# Import configuration
+from config import Config
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Import db operations (only for standalone script usage)
+import db as db_operations
 
 def run_fastqc(file1,file2):
     if not(os.path.exists("./fastqc")):
@@ -47,24 +58,60 @@ def read_qc(file1,file2):
     subprocess.run(command, check=True) 
     return False
 
-def run_trim(file1,file2):
-    env = os.environ.copy()
-    trimmomatic=env["trimmomatic"]
-    file1_name=file1.split(".")[0]
-    file2_name=file2.split(".")[0]
-    command = ["java","-jar",trimmomatic,"PE","-threads","8",f"./{file1}",f"./{file2}",
-                f"./{file1_name}_trim.fastq.gz",f"./trim_R1_unpaired.fastq.gz",f"./{file2_name}_trim.fastq.gz",f"./trim_R2_unpaired.fastq.gz",
-                "ILLUMINACLIP:/home/iu98/toolkit/Trimmomatic-0.39/adapters/TruSeq3-PE.fa:2:30:10:2:True","LEADING:3","TRAILING:3","MINLEN:36"]
-    subprocess.run(command, check=True, env=env)  
+def run_trim(file1, file2):
+    """Run Trimmomatic for read trimming."""
+    try:
+        file1_name = file1.split(".")[0]
+        file2_name = file2.split(".")[0]
+        
+        command = [
+            "java", "-jar", str(Config.TRIMMOMATIC_PATH),
+            "PE", "-threads", str(Config.DEFAULT_THREADS),
+            f"./{file1}", f"./{file2}",
+            f"./{file1_name}_trim.fastq.gz", "./trim_R1_unpaired.fastq.gz",
+            f"./{file2_name}_trim.fastq.gz", "./trim_R2_unpaired.fastq.gz",
+            f"ILLUMINACLIP:{Config.TRIMMOMATIC_ADAPTERS}:2:30:10:2:True",
+            "LEADING:3", "TRAILING:3", "MINLEN:36"
+        ]
+        subprocess.run(command, check=True)
+        logger.info("Trimmomatic completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Trimmomatic failed: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error running Trimmomatic: {e}")
+        raise  
 
 
-def run_kraken2(file1,file2):
-    if not(os.path.exists("./kraken")):
-        os.mkdir("./kraken")
-    command = f"kraken2 --paired --threads 8 --report ./kraken/result.kreport ./{file1} ./{file2} > ./kraken/kraken.txt"
-    subprocess.run(command, check=True, shell=True)
-    command = ["bracken","-d","/home/iu98/toolkit/kraken_db","-i",f"./kraken/result.kreport","-o",f"./kraken/result.bracken","-r","100"]
-    subprocess.run(command, check=True)  
+def run_kraken2(file1, file2):
+    """Run Kraken2 for species identification."""
+    try:
+        kraken_dir = Path("./kraken")
+        kraken_dir.mkdir(exist_ok=True)
+        
+        command = (
+            f"kraken2 --paired --threads {Config.DEFAULT_THREADS} "
+            f"--db {Config.KRAKEN_DB_PATH} "
+            f"--report ./kraken/result.kreport "
+            f"./{file1} ./{file2} > ./kraken/kraken.txt"
+        )
+        subprocess.run(command, check=True, shell=True)
+        
+        command = [
+            "bracken",
+            "-d", str(Config.KRAKEN_DB_PATH),
+            "-i", "./kraken/result.kreport",
+            "-o", "./kraken/result.bracken",
+            "-r", "100"
+        ]
+        subprocess.run(command, check=True)
+        logger.info("Kraken2 completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Kraken2 failed: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error running Kraken2: {e}")
+        raise  
 
         
 def run_spades(file1,file2):
@@ -72,10 +119,25 @@ def run_spades(file1,file2):
     subprocess.run(command, check=True)  
 
 def run_quast():
-    command = ["quast.py",f"./spades/scaffolds.fasta","-m","100","-r","/home/iu98/pneumo_page/reference/GCF_002076835.1_ASM207683v1_genomic.fna",
-               "-g","/home/iu98/pneumo_page/reference/s.pneumoniae.gtf","-t","4",
-               "-o",f"./quast"]
-    subprocess.run(command, check=True)  
+    """Run QUAST for assembly quality assessment."""
+    try:
+        command = [
+            "quast.py",
+            "./spades/scaffolds.fasta",
+            "-m", str(Config.QUAST_MIN_CONTIG),
+            "-r", str(Config.REFERENCE_GENOME),
+            "-g", str(Config.REFERENCE_GTF),
+            "-t", "4",
+            "-o", "./quast"
+        ]
+        subprocess.run(command, check=True)
+        logger.info("QUAST completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"QUAST failed: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error running QUAST: {e}")
+        raise  
 
 def run_prokka():
     command = ["prokka","-o","prokka","--force","--prefix","prokka","./spades/scaffolds.fasta"]
@@ -90,26 +152,73 @@ def run_MGE():
     subprocess.run(command, check=True)  
 
 def run_cgMLST():
-    if not(os.path.exists("./cgMLST")):
-        os.mkdir("./cgMLST")
-    command = ["cgMLST.py","-i","./spades/scaffolds.fasta","-s","spneumoniae"
-                ,"-db","/home/iu98/pneumo_pipline/cgmlstfinder/cgmlstfinder_db","-o","./cgMLST"]
-    subprocess.run(command, check=True)  
+    """Run cgMLST for strain typing."""
+    try:
+        cgmlst_dir = Path("./cgMLST")
+        cgmlst_dir.mkdir(exist_ok=True)
+        
+        command = [
+            "cgMLST.py",
+            "-i", "./spades/scaffolds.fasta",
+            "-s", "spneumoniae",
+            "-db", str(Config.CGMLST_DB_PATH),
+            "-o", "./cgMLST"
+        ]
+        subprocess.run(command, check=True)
+        logger.info("cgMLST completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"cgMLST failed: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error running cgMLST: {e}")
+        raise  
 
 def run_poppunk():
-    with open("path.txt","w") as f:
-        f.write("S1\t./spades/scaffolds.fasta\n")
-        f.close()
-    command = ["poppunk_assign","--db","/home/iu98/toolkit/GPS_v6/GPS_v6","--distance","/home/iu98/toolkit/GPS_v6/GPS_v6.dists","--query","path.txt",
-               "--output","poppunk","--external-clustering","/home/iu98/toolkit/GPS_v6/GPS_v6_external_clusters.csv","--threads","8"]
-    subprocess.run(command, check=True)  
+    """Run PopPUNK for global pneumococcal sequencing cluster assignment."""
+    try:
+        with open("path.txt", "w") as f:
+            f.write("S1\t./spades/scaffolds.fasta\n")
+        
+        command = [
+            "poppunk_assign",
+            "--db", str(Config.POPPUNK_DB_PATH),
+            "--distance", str(Config.POPPUNK_DIST_PATH),
+            "--query", "path.txt",
+            "--output", "poppunk",
+            "--external-clustering", str(Config.POPPUNK_CLUSTERS_PATH),
+            "--threads", str(Config.DEFAULT_THREADS)
+        ]
+        subprocess.run(command, check=True)
+        logger.info("PopPUNK completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"PopPUNK failed: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error running PopPUNK: {e}")
+        raise  
 
 def run_virulencefinder():
-    if not(os.path.exists("./virulence")):
-        os.mkdir("./virulence")
-    command = ["virulencefinder.py","-i","./spades/scaffolds.fasta","-d","s.pneumoniae"
-                ,"-p","/home/iu98/pneumo_pipline/virulencefinder/virulencefinder_db","-x","-o","./virulence"]
-    subprocess.run(command, check=True)  
+    """Run VirulenceFinder for virulence gene detection."""
+    try:
+        vir_dir = Path("./virulence")
+        vir_dir.mkdir(exist_ok=True)
+        
+        command = [
+            "virulencefinder.py",
+            "-i", "./spades/scaffolds.fasta",
+            "-d", "s.pneumoniae",
+            "-p", str(Config.VIRULENCEFINDER_DB_PATH),
+            "-x",
+            "-o", "./virulence"
+        ]
+        subprocess.run(command, check=True)
+        logger.info("VirulenceFinder completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"VirulenceFinder failed: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error running VirulenceFinder: {e}")
+        raise  
 
 
 def run_abricate():
@@ -134,36 +243,54 @@ def run_plasmidfinder():
     subprocess.run(command, check=True, shell=True) 
 
 def run_pbpfinder():
-    job_path=os.path.abspath(os.curdir)
-    print(job_path)
-    os.chdir("/home/iu98/pneumo_pipline/pbp_connectagen")
-    command = ["cnpbp.sh","-s",f"{job_path}/spades/scaffolds.fasta","-n","pbp","-o",f"{job_path}/pbptyping"]
-    subprocess.run(command, check=True) 
-    os.chdir(job_path)
-    with open("./pbptyping/pbp_final_result.tsv") as f:
-        for line in f:
-            if(line.startswith(">PBP_Category")):
-                f1=open("./pbptyping/pbp_Category.txt","w")
-                f1.write(line.lstrip(">"))
-            elif(line.startswith(">Agent")):
-                f1.close()
-                f2=open(f"./pbptyping/pbp_agent.txt","w")
-                f2.write(line.lstrip(">"))
-                break
-            else:
-                f1.write(line)
-        for line in f:
-            f2.write(line)
-        f2.close()
+    """Run PBP finder for penicillin-binding protein typing."""
+    try:
+        job_path = os.path.abspath(os.curdir)
+        logger.info(f"Running PBP finder in: {job_path}")
+        
+        os.chdir(str(Config.PBP_SCRIPT_DIR))
+        command = [
+            "cnpbp.sh",
+            "-s", f"{job_path}/spades/scaffolds.fasta",
+            "-n", "pbp",
+            "-o", f"{job_path}/pbptyping"
+        ]
+        subprocess.run(command, check=True)
+        os.chdir(job_path)
+        
+        # Parse output files
+        with open("./pbptyping/pbp_final_result.tsv") as f:
+            for line in f:
+                if line.startswith(">PBP_Category"):
+                    f1 = open("./pbptyping/pbp_Category.txt", "w")
+                    f1.write(line.lstrip(">"))
+                elif line.startswith(">Agent"):
+                    f1.close()
+                    f2 = open("./pbptyping/pbp_agent.txt", "w")
+                    f2.write(line.lstrip(">"))
+                    break
+                else:
+                    f1.write(line)
+            for line in f:
+                f2.write(line)
+            f2.close()
+        
+        logger.info("PBP finder completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"PBP finder failed: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error running PBP finder: {e}")
+        raise
 
 def run_seroba(file1,file2):
     print(os.path.abspath(os.path.curdir))
-    #os.system(f"mv ./{file1} ./read_1.fq.gz")
-    #os.system(f"mv ./{file2} ./read_2.fq.gz")
+    os.system(f"mv ./{file1} ./read_1.fq.gz")
+    os.system(f"mv ./{file2} ./read_2.fq.gz")
     command = ["seroba","runSerotyping", f"./{file1}",f"./{file2}","seroba"]
     subprocess.run(command, check=True) 
-    #os.system(f"mv ./read_1.fq.gz ./{file1}")
-    #os.system(f"mv ./read_2.fq.gz ./{file2}")
+    os.system(f"mv ./read_1.fq.gz ./{file1}")
+    os.system(f"mv ./read_2.fq.gz ./{file2}")
     
 
 def run_blast():
@@ -173,18 +300,25 @@ def run_blast():
                 ,"-outfmt",'6 qseqid sseqid scomnames length qstart qend sstart send evalue pident',"-out","./blast/blast_result.txt"]
     subprocess.run(command, check=True)  
 
-def get_species(user_key,job_key):
-    os.chdir("/home/iu98/pneumo_page")
-    path_name="./user/"+user_key+"/"+job_key
-    #print(path_name)
-    path_name=str(path_name)
-    os.chdir(path_name)
+def get_species(user_key, job_key):
+    """Get species identification from Kraken2 results."""
     try:
-        kraken=pd.read_csv(("./kraken/result.bracken"),sep="\t",keep_default_na=False)[0:5]
-        species=kraken.iloc[0,0]
+        path_name = Config.USER_DATA_DIR / str(user_key) / str(job_key)
+        os.chdir(str(path_name))
+        
+        kraken_file = path_name / "kraken" / "result.bracken"
+        if not kraken_file.exists():
+            logger.warning(f"Kraken results not found for job {user_key}:{job_key}")
+            return None
+        
+        kraken = pd.read_csv(str(kraken_file), sep="\t", keep_default_na=False)[0:5]
+        species = kraken.iloc[0, 0]
         return species
-    except:
+    except Exception as e:
+        logger.error(f"Error getting species: {e}")
         return None
+    finally:
+        os.chdir(str(Config.BASE_DIR))
 
 def get_info(user_key,job_key):
     os.chdir("/home/iu98/pneumo_page")
@@ -259,70 +393,137 @@ def get_info(user_key,job_key):
     return species, quast, sero_bool, sero_txt, seroba, vir, mlst_info, mlst_val, mge, cgmlst, kraken, plasmid, amr, prokka, poppunk, pbp_category, pbp_agent
 
     
-def run_pipeline(path_name,file1,file2,home_path="/home/iu98/pneumo_page"):
-    os.chdir(path_name)
-    print(path_name)
-    os.system("ls -l | grep ^d | awk '{print $NF}' | xargs rm -rf\n")
-    run_fastqc(file1,file2)
-    #flag=read_qc(file1,file2)
-    #if flag:
-    #    run_trim(path_name,file1,file2)
-    #    file1=file1.split(".")+"_trim.fastq.gz"
-    #    file2=file2.split(".")+"_trim.fastq.gz"
-    run_kraken2(file1,file2)
-    kraken=pd.read_csv(("./kraken/result.bracken"),sep="\t",keep_default_na=False)[0:1]
-    if kraken.loc[0,"name"]!="Streptococcus pneumoniae":
-        run_spades(file1,file2)
-        run_quast()
-        return False
-    #else:
-    run_spades(file1,file2)
-    run_quast()
-    run_seroba(file1,file2)
-    run_prokka()
-    run_poppunk()
-    run_MGE()
-    run_cgMLST()
-    run_MLST()
-    run_virulencefinder()
-    run_abricate()
-    run_plasmidfinder()
-    run_pbpfinder()
-    print("All Done!")
-    os.chdir(home_path)
-    return True
-
-def run_with_web(user_key,job_info):
-    os.chdir("/home/iu98/pneumo_page")
-    job_key=job_info["job_key"]
+def run_pipeline(path_name, file1, file2, home_path=None):
+    """
+    Run complete analysis pipeline.
+    
+    Args:
+        path_name: Path to job directory
+        file1: Forward read file name
+        file2: Reverse read file name
+        home_path: Home directory to return to (defaults to Config.BASE_DIR)
+    
+    Returns:
+        True if S. pneumoniae and full analysis completed, False otherwise
+    """
+    if home_path is None:
+        home_path = str(Config.BASE_DIR)
+    
     try:
-        path_name=os.path.join("./user/",str(user_key),str(job_key))
-        file1=job_info["file1"]
-        file2=job_info["file2"]
-
-        db.update_db(user_key,job_key,"running")
-        result=run_pipeline(path_name,file1,file2)
-        if not result:
-            os.chdir("/home/iu98/pneumo_page")
-            db.update_db(user_key,job_key,"fail")    
+        os.chdir(path_name)
+        logger.info(f"Starting pipeline in: {path_name}")
+        
+        # Clean up old directories
+        os.system("ls -l | grep ^d | awk '{print $NF}' | xargs rm -rf\n")
+        
+        # Run FastQC
+        run_fastqc(file1, file2)
+        
+        # Run Kraken2 for species identification
+        run_kraken2(file1, file2)
+        
+        # Check species
+        kraken = pd.read_csv("./kraken/result.bracken", sep="\t", keep_default_na=False)[0:1]
+        species = kraken.loc[0, "name"]
+        logger.info(f"Identified species: {species}")
+        
+        # Always run assembly and QC
+        run_spades(file1, file2)
+        run_quast()
+        
+        # If not S. pneumoniae, stop here
+        if species != "Streptococcus pneumoniae":
+            logger.info(f"Not S. pneumoniae ({species}), stopping after basic assembly")
+            return False
+        
+        # Full S. pneumoniae analysis
+        logger.info("Running full S. pneumoniae analysis")
+        run_seroba(file1, file2)
+        run_prokka()
+        run_poppunk()
+        run_MGE()
+        run_cgMLST()
+        run_MLST()
+        run_virulencefinder()
+        run_abricate()
+        run_plasmidfinder()
+        run_pbpfinder()
+        
+        logger.info("Pipeline completed successfully!")
+        return True
+        
     except Exception as e:
-        print(e)
-        os.chdir("/home/iu98/pneumo_page")
-        db.update_db(user_key,job_key,"fail")
-    else:
-        os.chdir("/home/iu98/pneumo_page")
-        db.update_db(user_key,job_key,"complete")
+        logger.error(f"Pipeline error: {e}")
+        raise
+    finally:
+        os.chdir(home_path)
+
+def run_with_web(user_key, job_info):
+    """
+    Run pipeline and update database status.
+    Called by SLURM job scheduler.
+    
+    Args:
+        user_key: User identifier
+        job_info: Dictionary with job_key, file1, file2
+    """
+    # Import Flask app for context
+    from app import app
+    
+    job_key = job_info["job_key"]
+    
+    # Run within Flask application context
+    with app.app_context():
+        try:
+            path_name = Config.USER_DATA_DIR / str(user_key) / str(job_key)
+            file1 = job_info["file1"]
+            file2 = job_info["file2"]
+            
+            logger.info(f"Starting job {user_key}:{job_key}")
+            
+            # Update status to running
+            db_operations.update_db(user_key, int(job_key), "running")
+            
+            # Run pipeline
+            result = run_pipeline(str(path_name), file1, file2)
+            
+            if not result:
+                logger.warning(f"Job {user_key}:{job_key} completed but not S. pneumoniae")
+                db_operations.update_db(user_key, int(job_key), "complete")
+            else:
+                logger.info(f"Job {user_key}:{job_key} completed successfully")
+                db_operations.update_db(user_key, int(job_key), "complete")
+                
+        except Exception as e:
+            logger.error(f"Job {user_key}:{job_key} failed: {e}")
+            db_operations.update_db(user_key, int(job_key), "fail")
+            raise
 
 
 if __name__ == '__main__':
-    user_key=sys.argv[1]
-    job_key=sys.argv[2]
-    file1=sys.argv[3]
-    file2=sys.argv[4]
-    job_info={}
-    job_info["job_key"]=job_key
-    job_info["file1"]=file1
-    job_info["file2"]=file2
-    print("Run S.pneumoniae analysis...")
-    run_with_web(user_key,job_info)
-    print("All Done!")
+    if len(sys.argv) < 5:
+        print("Usage: run_pipeline.py <user_key> <job_key> <file1> <file2>")
+        sys.exit(1)
+    
+    user_key = sys.argv[1]
+    job_key = sys.argv[2]
+    file1 = sys.argv[3]
+    file2 = sys.argv[4]
+    
+    job_info = {
+        "job_key": job_key,
+        "file1": file1,
+        "file2": file2
+    }
+    
+    logger.info("=" * 80)
+    logger.info("Starting S. pneumoniae analysis pipeline")
+    logger.info(f"User: {user_key}, Job: {job_key}")
+    logger.info(f"Files: {file1}, {file2}")
+    logger.info("=" * 80)
+    
+    run_with_web(user_key, job_info)
+    
+    logger.info("=" * 80)
+    logger.info("Pipeline execution completed")
+    logger.info("=" * 80)
