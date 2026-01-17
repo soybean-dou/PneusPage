@@ -21,6 +21,7 @@ from config import Config, get_config
 from models import db, User, Job
 import db as db_operations
 import run_pipeline as rp
+from services import UserService, JobService
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -122,8 +123,8 @@ def callback():
         app.logger.info(f"User logged in: {id_info.get('email')}")
         
         # Create user if not exists
-        if not db_operations.is_joined(id_info["user_key"]):
-            db_operations.insert_user(id_info)
+        if not UserService.is_user_registered(id_info["user_key"]):
+            UserService.create_user(id_info)
         
         return redirect("/")
         
@@ -186,52 +187,39 @@ def upload():
                 flash("Job name is required!")
                 return redirect("/submit")
             
-            job_key = db_operations.read_job_num(user_info['user_key'])
+            # Get next job number
+            job_key = JobService.get_next_job_number(user_info['user_key'])
             app.logger.info(f"Creating job {job_key} for user {user_info['user_key']}")
 
             # Create job directory
-            job_dir = app_config.USER_DATA_DIR / str(user_info['user_key']) / str(job_key)
-            if job_dir.exists():
-                app.logger.error(f"Job directory already exists: {job_dir}")
+            try:
+                job_dir = JobService.create_job_directory(user_info['user_key'], job_key)
+            except FileExistsError:
                 flash("Job directory already exists. Please try again.")
                 return redirect("/submit")
             
-            job_dir.mkdir(parents=True, exist_ok=True)
-            app.logger.info(f"Created job directory: {job_dir}")
-            
             # Process uploaded files
             files = request.files.getlist("file[]")
-            if not files or len(files) < 2:
-                flash("Please upload both forward and reverse read files!")
+            try:
+                saved_files = JobService.save_uploaded_files(job_dir, files)
+            except ValueError as e:
+                flash(str(e))
                 return redirect("/submit")
             
+            # Create job info
             job_info = {
                 'user_key': user_info['user_key'],
                 "jobname": jobname,
                 "job_key": job_key,
-                "file1": "NULL",
-                "file2": "NULL"
+                "file1": saved_files['file1'],
+                "file2": saved_files['file2']
             }
             
-            # Save files
-            for i, f in enumerate(files[:2]):  # Only take first 2 files
-                if f and f.filename:
-                    filename = secure_filename(f.filename)
-                    filepath = job_dir / filename
-                    f.save(str(filepath))
-                    job_info[f'file{i+1}'] = filename
-                    app.logger.debug(f"Saved file: {filename}")
-            
-            # Validate both files were uploaded
-            if job_info['file1'] == "NULL" or job_info['file2'] == "NULL":
-                flash("Both forward and reverse read files are required!")
-                return redirect("/submit")
-            
             # Insert job into database
-            db_operations.insert_job(user_info, job_info)
+            JobService.create_job(user_info, job_info)
             
             # Submit to SLURM
-            run_slurm(user_info["user_key"], job_info)
+            JobService.submit_to_slurm(user_info["user_key"], job_info)
             
             flash(f"Job '{jobname}' submitted successfully!")
             return redirect(f"/result/{str(user_info['user_key'])}")
@@ -250,83 +238,74 @@ def upload():
 @app.route('/uploadMulti', methods=['POST'])
 def upload_multi():
     if request.method == 'POST':
-        os.chdir("/home/iu98/pneumo_page")
-        user_info={
-            "user_key":session["user_key"],
-            "username":session["name"]
+        try:
+            user_info = {
+                "user_key": session["user_key"],
+                "username": session["name"]
             }
-        
-        if not os.path.exists("./user/"+str(user_info['user_key'])+"/multi"):
-            os.system("mkdir ./user/"+str(user_info['user_key'])+"/multi")
-            print("make ./user/"+str(user_info['user_key'])+"/multi")
-
-        tsv =  request.files["file"]
-        tsv.save(os.path.join(("./user/"+str(user_info['user_key'])),"multi",secure_filename(tsv.filename)))
-        
-        file_list=pd.read_table(os.path.join(("./user/"+str(user_info['user_key'])),"multi",secure_filename(tsv.filename)),sep="\t",names=["jobs","read1","read2"])
-        print(file_list)
-        raws =  request.files.getlist("file[]")
-        raw_list=[]
-
-        if raws:
-            #파일이 모두 유효한 것들인지 확인
-            for i in range(len(raws)):
-                f=raws[i]
-                print(list(file_list["read1"]))
-                if f.filename in list(file_list["read1"]):
-                    raw_list.append(f.filename)
-                elif f.filename in list(file_list["read2"]):
-                    raw_list.append(f.filename)
+            
+            # Create multi directory for TSV file
+            multi_dir = JobService.create_multi_directory(user_info['user_key'])
+            
+            # Save TSV file
+            tsv = request.files["file"]
+            if not tsv or not tsv.filename:
+                flash("File list TSV is required!")
+                return redirect("/submit")
+            
+            from werkzeug.utils import secure_filename
+            tsv_path = multi_dir / secure_filename(tsv.filename)
+            tsv.save(str(tsv_path))
+            
+            # Read file list from TSV
+            file_list = pd.read_table(
+                tsv_path,
+                sep="\t",
+                names=["jobs", "read1", "read2"]
+            )
+            app.logger.info(f"Processing batch upload with {len(file_list)} jobs")
+            
+            # Get uploaded raw files
+            raws = request.files.getlist("file[]")
+            if not raws:
+                flash("No read files uploaded!")
+                return redirect("/submit")
+            
+            # Process batch upload
+            try:
+                jobs_created, errors = JobService.process_batch_upload(
+                    user_info['user_key'],
+                    user_info['username'],
+                    file_list,
+                    raws
+                )
+                
+                if errors:
+                    for error in errors:
+                        flash(error)
+                
+                if jobs_created > 0:
+                    flash(f"Successfully created {jobs_created} jobs!")
                 else:
-                    flash("Your file is invalid!") 
-                    return redirect(f"/submit")
-        else:
-            flash("Your file is invalid!")    
-            return redirect(f"/submit")
-
-        job_key=db.read_job_num(user_info['user_key'])
-        print("job key :",job_key)
-        
-        for i in range(len(file_list["jobs"])):
-            print("job key :",job_key)
-            job_info={'user_key':user_info['user_key'],
-                    "jobname":file_list.iloc[i,0],
-                    "job_key":job_key,
-                    "file1":file_list.iloc[i,1],
-                    "file2":file_list.iloc[i,2]
-                }
-            if not os.path.exists("./user/"+str(user_info['user_key'])+"/"+str(job_key)):
-                os.system("mkdir ./user/"+str(user_info['user_key'])+"/"+str(job_key))
-                print("make ./user/"+str(user_info['user_key'])+"/"+str(job_key))
-            else :
-                data = {'result': 'err'}
-                return jsonpickle.encode(data)
+                    flash("No jobs were created. Check errors above.")
+                
+            except ValueError as e:
+                flash(str(e))
+                return redirect("/submit")
             
-            #if raws:
-            idx=raw_list.index(job_info["file1"])
-            f=raws[idx]
-            f.save(os.path.join(("./user/"+str(user_info['user_key'])),str(job_key), secure_filename(f.filename)))
-
-            idx=raw_list.index(job_info["file2"])
-            f=raws[idx]
-            f.save(os.path.join(("./user/"+str(user_info['user_key'])),str(job_key), secure_filename(f.filename)))
+            return redirect(f"/result/{str(user_info['user_key'])}")
             
-            for j in range(2):
-                if job_info[f'file{str(j+1)}']=="NULL":
-                    job_info[f'file{str(j+1)}']=secure_filename(f.filename)
-
-            db.insert_job(user_info,job_info)
-            run_slurm(user_info["user_key"],job_info)
-            job_key+=1
-                #data = {'result': 'success'} 
-            #else:
-            #    data = {'result': 'err'}
-            #    return jsonpickle.encode(data)
-            
-        return redirect(f"/result/{str(user_info['user_key'])}")
+        except KeyError as e:
+            app.logger.error(f"Missing session key: {e}")
+            flash("Please log in to submit jobs.")
+            return redirect("/login")
+        except Exception as e:
+            app.logger.error(f"Batch upload error: {e}")
+            flash("An error occurred during batch upload. Please try again.")
+            return redirect("/submit")
     else:
-        flash("your file is invalid!")    
-        return redirect(f"/submit")
+        flash("Invalid request!")
+        return redirect("/submit")
 
 
 
@@ -343,24 +322,13 @@ def result(user_key):
         if protected() == False:
             return redirect("/")
         
-        # Check permission (admin can view all, others only their own)
-        if (str(user_key) != session['user_key'] and 
-            session['user_key'] not in app_config.ADMIN_USERS):
+        # Check permission
+        if not UserService.can_access_user_data(session['user_key'], user_key):
             flash("You do not have permission!")
             return redirect(f"/result/{session['user_key']}")
         
         # Get user's jobs
-        db_info = db_operations.read_user_job(user_key)
-        db_df = pd.DataFrame.from_records(
-            data=db_info,
-            columns=["user_key", "username", "job_num", "jobname", "input", "state", "date"]
-        )
-        db_df["species"] = ""
-        
-        # Get species for each job
-        for job_id in db_df["job_num"]:
-            species = rp.get_species(user_key, str(job_id))
-            db_df.loc[db_df["job_num"] == job_id, "species"] = species if species else ""
+        db_df = JobService.get_user_jobs(user_key)
         
         return render_template('result.html', rows=db_df, login=True, user_id=user_key)
         
@@ -376,6 +344,11 @@ def detail(user_key, job_key):
         is_logined = protected() != False
         
         if not is_logined:
+            return redirect("/")
+        
+        # Check permission
+        if not UserService.can_access_user_data(session.get('user_key', ''), user_key):
+            flash("You do not have permission!")
             return redirect("/")
         
         # Get job information
@@ -447,38 +420,80 @@ def detail(user_key, job_key):
         return redirect(f"/result/{user_key}")
 
 @app.route('/result/<user_key>/<job_key>/fastqc/<file_name>/download')
-def fastqc_download(user_key,job_key,file_name):
-    os.chdir("/home/iu98/pneumo_page")
-    file_name=file_name.split(".")[0]+"_fastqc.html"
-    path=os.path.join("./user",user_key,str(job_key),"fastqc",file_name)
-    return send_file(path, as_attachment=True)
+def fastqc_download(user_key, job_key, file_name):
+    try:
+        # Check permission
+        if not UserService.can_access_user_data(session.get('user_key', ''), user_key):
+            flash("You do not have permission!")
+            return redirect("/")
+        
+        file_name = file_name.split(".")[0] + "_fastqc.html"
+        path = app_config.USER_DATA_DIR / user_key / str(job_key) / "fastqc" / file_name
+        
+        if not path.exists():
+            flash("File not found.")
+            return redirect(f"/result/{user_key}/{job_key}")
+        
+        return send_file(str(path), as_attachment=True)
+    except Exception as e:
+        app.logger.error(f"Download error: {e}")
+        flash("Error downloading file.")
+        return redirect(f"/result/{user_key}/{job_key}")
 
 @app.route('/result/<user_key>/<job_key>/assembled_fasta/download')
-def assembled_fasta_download(user_key,job_key):
-    os.chdir("/home/iu98/pneumo_page")
-    path=os.path.join("./user",user_key,str(job_key),"spades","scaffolds.fasta")
-    return send_file(path, as_attachment=True)
+def assembled_fasta_download(user_key, job_key):
+    try:
+        # Check permission
+        if not UserService.can_access_user_data(session.get('user_key', ''), user_key):
+            flash("You do not have permission!")
+            return redirect("/")
+        
+        path = app_config.USER_DATA_DIR / user_key / str(job_key) / "spades" / "scaffolds.fasta"
+        
+        if not path.exists():
+            flash("File not found.")
+            return redirect(f"/result/{user_key}/{job_key}")
+        
+        return send_file(str(path), as_attachment=True)
+    except Exception as e:
+        app.logger.error(f"Download error: {e}")
+        flash("Error downloading file.")
+        return redirect(f"/result/{user_key}/{job_key}")
 
 @app.route('/result/<user_key>/<job_key>/gene_anot/download')
-def gene_annot_download(user_key,job_key):
-    os.chdir("/home/iu98/pneumo_page")
-    path=os.path.join("./user",user_key,str(job_key),"prokka","prokka.tsv")
-    return send_file(path, as_attachment=True)
+def gene_annot_download(user_key, job_key):
+    try:
+        # Check permission
+        if not UserService.can_access_user_data(session.get('user_key', ''), user_key):
+            flash("You do not have permission!")
+            return redirect("/")
+        
+        path = app_config.USER_DATA_DIR / user_key / str(job_key) / "prokka" / "prokka.tsv"
+        
+        if not path.exists():
+            flash("File not found.")
+            return redirect(f"/result/{user_key}/{job_key}")
+        
+        return send_file(str(path), as_attachment=True)
+    except Exception as e:
+        app.logger.error(f"Download error: {e}")
+        flash("Error downloading file.")
+        return redirect(f"/result/{user_key}/{job_key}")
 
 @app.route('/submit/tsv/download')
 def ex_tsv_download():
-    path=os.path.join(".","sample","file_list.tsv")
-    return send_file(path, as_attachment=True)
+    path = app_config.BASE_DIR / "sample" / "file_list.tsv"
+    return send_file(str(path), as_attachment=True)
 
 @app.route('/submit/forward/download')
 def ex_forward_download():
-    path=os.path.join(".","sample","ERR11640752_1.fastq.gz")
-    return send_file(path, as_attachment=True)
+    path = app_config.BASE_DIR / "sample" / "ERR11640752_1.fastq.gz"
+    return send_file(str(path), as_attachment=True)
 
 @app.route('/submit/reverse/download')
 def ex_reverse_download():
-    path=os.path.join(".","sample","ERR11640752_2.fastq.gz")
-    return send_file(path, as_attachment=True)
+    path = app_config.BASE_DIR / "sample" / "ERR11640752_2.fastq.gz"
+    return send_file(str(path), as_attachment=True)
     
 
 @app.route('/mypage')
@@ -487,7 +502,7 @@ def mypage():
         if protected() == False:
             return redirect("/login")
         
-        date_info = db_operations.read_user_db(session['user_key'])
+        date_info = UserService.get_user_info(session['user_key'])
         join_date = date_info['date'] if date_info else 'Unknown'
         
         return render_template(
@@ -502,39 +517,6 @@ def mypage():
         return redirect("/")
 
 
-def run_slurm(user_key, job_info):
-    """Submit analysis job to SLURM scheduler."""
-    try:
-        job_dir = app_config.USER_DATA_DIR / str(user_key) / str(job_info["job_key"])
-        sbatch_file = job_dir / "sbatch.sh"
-        
-        # Create SLURM batch script
-        with open(sbatch_file, "w") as f:
-            f.write("#!/bin/sh\n\n")
-            f.write(f"#SBATCH -J pne_{job_info['job_key']}\n")
-            f.write(f"#SBATCH --cpus-per-task={app_config.SLURM_CPUS}\n")
-            f.write(f"#SBATCH --mem {app_config.SLURM_MEMORY}\n")
-            f.write(f"#SBATCH -p {app_config.SLURM_PARTITION}\n")
-            f.write(f"#SBATCH -o {job_info['job_key']}.out\n")
-            f.write(f"#SBATCH -e {job_info['job_key']}.err\n\n")
-            f.write(f"python {app_config.BASE_DIR}/run_pipeline.py ")
-            f.write(f"{user_key} {job_info['job_key']} {job_info['file1']} {job_info['file2']}\n")
-        
-        # Submit to SLURM
-        current_dir = os.getcwd()
-        os.chdir(job_dir)
-        result = os.system("sbatch sbatch.sh")
-        os.chdir(current_dir)
-        
-        if result == 0:
-            app.logger.info(f"Submitted job {job_info['job_key']} to SLURM")
-        else:
-            app.logger.error(f"Failed to submit job {job_info['job_key']} to SLURM")
-        
-    except Exception as e:
-        app.logger.error(f"Error submitting to SLURM: {e}")
-
-
 @app.route('/result/<user_key>/<job_key>/delete')
 def delete_job(user_key, job_key):
     try:
@@ -546,17 +528,12 @@ def delete_job(user_key, job_key):
             flash("You do not have permission to delete this job!")
             return redirect(f"/result/{session['user_key']}")
         
-        # Delete job directory
-        job_dir = app_config.USER_DATA_DIR / str(user_key) / str(job_key)
-        if job_dir.exists():
-            import shutil
-            shutil.rmtree(job_dir)
-            app.logger.info(f"Deleted job directory: {job_dir}")
+        # Delete job
+        if JobService.delete_job(user_key, int(job_key)):
+            flash(f"Job {job_key} deleted successfully.")
+        else:
+            flash(f"Failed to delete job {job_key}.")
         
-        # Delete from database
-        db_operations.delete_user_job(user_key, int(job_key))
-        
-        flash(f"Job {job_key} deleted successfully.")
         return redirect(f"/result/{session['user_key']}")
         
     except Exception as e:

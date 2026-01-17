@@ -467,32 +467,37 @@ def run_with_web(user_key, job_info):
         user_key: User identifier
         job_info: Dictionary with job_key, file1, file2
     """
+    # Import Flask app for context
+    from app import app
+    
     job_key = job_info["job_key"]
     
-    try:
-        path_name = Config.USER_DATA_DIR / str(user_key) / str(job_key)
-        file1 = job_info["file1"]
-        file2 = job_info["file2"]
-        
-        logger.info(f"Starting job {user_key}:{job_key}")
-        
-        # Update status to running
-        db_operations.update_db(user_key, int(job_key), "running")
-        
-        # Run pipeline
-        result = run_pipeline(str(path_name), file1, file2)
-        
-        if not result:
-            logger.warning(f"Job {user_key}:{job_key} completed but not S. pneumoniae")
-            db_operations.update_db(user_key, int(job_key), "complete")
-        else:
-            logger.info(f"Job {user_key}:{job_key} completed successfully")
-            db_operations.update_db(user_key, int(job_key), "complete")
+    # Run within Flask application context
+    with app.app_context():
+        try:
+            path_name = Config.USER_DATA_DIR / str(user_key) / str(job_key)
+            file1 = job_info["file1"]
+            file2 = job_info["file2"]
             
-    except Exception as e:
-        logger.error(f"Job {user_key}:{job_key} failed: {e}")
-        db_operations.update_db(user_key, int(job_key), "fail")
-        raise
+            logger.info(f"Starting job {user_key}:{job_key}")
+            
+            # Update status to running
+            db_operations.update_db(user_key, int(job_key), "running")
+            
+            # Run pipeline
+            result = run_pipeline(str(path_name), file1, file2)
+            
+            if not result:
+                logger.warning(f"Job {user_key}:{job_key} completed but not S. pneumoniae")
+                db_operations.update_db(user_key, int(job_key), "complete")
+            else:
+                logger.info(f"Job {user_key}:{job_key} completed successfully")
+                db_operations.update_db(user_key, int(job_key), "complete")
+                
+        except Exception as e:
+            logger.error(f"Job {user_key}:{job_key} failed: {e}")
+            db_operations.update_db(user_key, int(job_key), "fail")
+            raise
 
 
 if __name__ == '__main__':

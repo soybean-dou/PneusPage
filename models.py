@@ -57,9 +57,9 @@ class Job(db.Model):
                       primary_key=True, nullable=False)
     job_num = Column(Integer, primary_key=True, nullable=False)
     
-    # Job details
-    username = Column(String(255), nullable=False)
-    jobname = Column(String(255), nullable=False)
+    # Job details (column names match existing database schema)
+    name = Column(String(255), nullable=False)  # User name (was 'username' in new schema)
+    job_name = Column(String(255), nullable=False)  # Job name (was 'jobname' in new schema)
     input = Column(Text, nullable=False)  # Pipe-separated file names: "file1.fastq.gz|file2.fastq.gz"
     state = Column(String(50), nullable=False, default='queue', index=True)
     date = Column(String(100), nullable=False)  # Keep as string to match existing DB format
@@ -67,11 +67,30 @@ class Job(db.Model):
     # Relationship to user
     user = relationship('User', back_populates='jobs')
     
+    # Property aliases for backward compatibility with code
+    @property
+    def username(self):
+        """Alias for name field."""
+        return self.name
+    
+    @username.setter
+    def username(self, value):
+        self.name = value
+    
+    @property
+    def jobname(self):
+        """Alias for job_name field."""
+        return self.job_name
+    
+    @jobname.setter
+    def jobname(self, value):
+        self.job_name = value
+    
     def __init__(self, user_key, username, job_num, jobname, input_files, state='queue', date=None):
         self.user_key = user_key
-        self.username = username
+        self.name = username  # Map to actual column name
         self.job_num = job_num
-        self.jobname = jobname
+        self.job_name = jobname  # Map to actual column name
         self.input = input_files
         self.state = state
         if date is None:
@@ -80,15 +99,15 @@ class Job(db.Model):
         self.date = date
     
     def __repr__(self):
-        return f'<Job {self.user_key}:{self.job_num} - {self.jobname}>'
+        return f'<Job {self.user_key}:{self.job_num} - {self.job_name}>'
     
     def to_dict(self):
         """Convert job object to dictionary."""
         return {
             'user_key': self.user_key,
-            'user_name': self.username,
+            'user_name': self.name,  # Use actual column name
             'job_num': self.job_num,
-            'jobname': self.jobname,
+            'jobname': self.job_name,  # Use actual column name
             'input': self.input,
             'state': self.state,
             'date': self.date

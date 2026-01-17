@@ -239,9 +239,9 @@ def read_user_job(user_key: str) -> List[Dict[str, Any]]:
         for job in jobs:
             result.append({
                 'user_key': job.user_key,
-                'username': job.username,
+                'username': job.name,  # Use actual column name
                 'job_num': job.job_num,
-                'jobname': job.jobname,
+                'jobname': job.job_name,  # Use actual column name
                 'input': job.input,
                 'state': job.state,
                 'date': job.date
@@ -333,9 +333,9 @@ def read_db_row(user_key: str, job_key: int) -> tuple:
             # Create SQLite Row-like object for backward compatibility
             job_dict = {
                 'user_key': job.user_key,
-                'username': job.username,
+                'username': job.name,  # Use actual column name
                 'job_num': job.job_num,
-                'jobname': job.jobname,
+                'jobname': job.job_name,  # Use actual column name
                 'input': job.input,
                 'state': job.state,
                 'date': job.date
