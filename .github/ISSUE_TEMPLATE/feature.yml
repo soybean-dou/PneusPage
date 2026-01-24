@@ -1,6 +1,6 @@
 name: Development Task
 description: Issue for new features, refactoring, documentation, bug fixes
-title: "[TYPE] Task title"
+title: "[FEATURE-CODE] Task description"
 labels: ["development"]
 assignees: []
 body:
@@ -8,12 +8,19 @@ body:
     attributes:
       value: |
         ## Development Task Issue
-        Please select the appropriate task type and add the corresponding label manually:
-        - `[FEATURE]` → Add label **feature**
-        - `[REFACTOR]` → Add label **refactor**
-        - `[DOCS]` → Add label **docs**
-        - `[FIX]` → Add label **fix**
-        - `[CHORE]` → Add label **chore**
+        **Title format:** `[FEATURE-CODE] Description`
+        - Example: `[UI-REFACTOR] Apply Tailwind CSS`
+        - Example: `[AUTH-FIX] Fix login session bug`
+        
+        **Add corresponding label:**
+        - New feature → **feature**
+        - Code refactoring → **refactor**
+        - Documentation → **docs**
+        - Bug fix → **fix**
+        - Maintenance → **chore**
+        
+        **Branch will be created as:** `label/feature-code-issue#`
+        - Example: `refactor/ui-refactor-6`
         
   - type: dropdown
     id: type

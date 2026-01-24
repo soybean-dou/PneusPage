@@ -21,11 +21,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           # Label 가져오기
           LABELS=$(gh issue view ${{ github.event.issue.number }} --json labels --jq '.labels[].name' || echo "")
           
           echo "Labels found: $LABELS"
+          echo "Issue title: $ISSUE_TITLE"
           
           # bug report는 브랜치 생성 안 함
           if echo "$LABELS" | grep -qi "bug report"; then
@@ -34,31 +36,42 @@ jobs:
             exit 0
           fi
           
-          # feature, refactor, docs, fix, chore label 찾기
-          FEATURE_CODE=""
+          # Label 타입 결정
+          LABEL_TYPE=""
           if echo "$LABELS" | grep -qi "^feature$"; then
-            FEATURE_CODE="FEATURE"
+            LABEL_TYPE="feature"
           elif echo "$LABELS" | grep -qi "^refactor$"; then
-            FEATURE_CODE="REFACTOR"
+            LABEL_TYPE="refactor"
           elif echo "$LABELS" | grep -qi "^docs$"; then
-            FEATURE_CODE="DOCS"
+            LABEL_TYPE="docs"
           elif echo "$LABELS" | grep -qi "^fix$"; then
-            FEATURE_CODE="FIX"
+            LABEL_TYPE="fix"
           elif echo "$LABELS" | grep -qi "^chore$"; then
-            FEATURE_CODE="CHORE"
+            LABEL_TYPE="chore"
           fi
           
           # Label이 없으면 브랜치 생성 안 함
-          if [ -z "$FEATURE_CODE" ]; then
+          if [ -z "$LABEL_TYPE" ]; then
             echo "No valid label found - skipping branch creation."
             echo "Valid labels: feature, refactor, docs, fix, chore"
             echo "SKIP_BRANCH=true" >> $GITHUB_ENV
             exit 0
           fi
           
+          # 타이틀에서 [기능코드] 추출
+          if [[ "$ISSUE_TITLE" =~ ^\[([^\]]+)\] ]]; then
+            FEATURE_CODE="${BASH_REMATCH[1]}"
+            # 소문자로 변환하고 공백/특수문자를 하이픈으로
+            FEATURE_CODE=$(echo "$FEATURE_CODE" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]-' '-' | sed 's/-*$//')
+            echo "Extracted feature code: $FEATURE_CODE"
+          else
+            echo "No feature code found in title format [CODE]"
+            echo "SKIP_BRANCH=true" >> $GITHUB_ENV
+            exit 0
+          fi
+          
           # 브랜치명 생성: label/기능코드-이슈번호
-          BRANCH_NAME=$(echo "${FEATURE_CODE}" | tr '[:upper:]' '[:lower:]')
-          BRANCH_NAME="${BRANCH_NAME}/${FEATURE_CODE}-${ISSUE_NUMBER}"
+          BRANCH_NAME="${LABEL_TYPE}/${FEATURE_CODE}-${ISSUE_NUMBER}"
           
           echo "Creating branch: $BRANCH_NAME"
           
