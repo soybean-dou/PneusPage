@@ -1,0 +1,87 @@
+name: Bug Report
+description: Report a bug or error
+title: "[BUG] Bug title"
+labels: ["bug report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report
+        Please provide detailed information about the bug you found.
+        
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What bug occurred?
+      placeholder: e.g., 500 error occurs on result page after login
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen when working correctly?
+      placeholder: e.g., Result page should display normally after login
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Please write the steps to reproduce this bug
+      placeholder: |
+        1. Go to '...' page
+        2. Click on '....'
+        3. Enter '....'
+        4. Error occurs
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Environment information where the bug occurred
+      value: |
+        - OS: 
+        - Browser: 
+        - Python version: 
+        - Other: 
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs / Screenshots
+      description: Please attach relevant error logs or screenshots if available
+      placeholder: |
+        ```
+        Paste error log here
+        ```
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Please select the severity of this bug
+      options:
+        - Critical (Service unavailable)
+        - High (Major feature error)
+        - Medium (Partial error)
+        - Low (Minor issue)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I have checked that this bug has not already been reported
+          required: true
+        - label: I can reproduce this bug
+          required: false
