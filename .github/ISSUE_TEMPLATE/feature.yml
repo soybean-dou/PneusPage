@@ -1,0 +1,66 @@
+name: Development Task
+description: Issue for new features, refactoring, documentation, bug fixes
+title: "[TYPE] Task title"
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Development Task Issue
+        Please select the appropriate label and provide detailed information.
+        
+  - type: dropdown
+    id: type
+    attributes:
+      label: Task Type
+      description: What kind of task is this?
+      options:
+        - "[FEAT] New Feature"
+        - "[REFACTOR] Code Refactoring"
+        - "[DOCS] Documentation"
+        - "[FIX] Bug Fix"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What will you develop/modify?
+      placeholder: |
+        Examples: 
+        - Add user authentication
+        - Separate service layer
+        - Update README
+        - Fix login error
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Detailed Description
+      description: Detailed explanation of the task (optional)
+      placeholder: |
+        - Implementation approach
+        - Considerations
+        - References
+
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Task checklist (optional)
+      value: |
+        - [ ] Task 1
+        - [ ] Task 2
+        - [ ] Write tests
+        - [ ] Update documentation
+
+  - type: checkboxes
+    id: ready
+    attributes:
+      label: Ready
+      options:
+        - label: I have provided sufficient information for this issue
+          required: true
