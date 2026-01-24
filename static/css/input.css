@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Noto+Sans+KR:wght@100;200;300;400;500;600;700;800;900&family=Raleway:ital,wght@0,600;0,700;0,800;0,900;1,600;1,700;1,800;1,900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-['Noto_Sans_KR',sans-serif] bg-base-100;
+  }
+}
+
+@layer components {
+  .page-title {
+    @apply text-4xl font-bold text-primary font-['Raleway',sans-serif];
+  }
+  
+  .btn-primary-custom {
+    @apply btn btn-primary hover:btn-secondary transition-all duration-300;
+  }
+  
+  .card-custom {
+    @apply card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow duration-300;
+  }
+  
+  .navbar-custom {
+    @apply navbar bg-primary text-primary-content;
+  }
+  
+  .table-custom {
+    @apply table table-zebra w-full;
+  }
+}
