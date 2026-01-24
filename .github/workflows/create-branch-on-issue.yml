@@ -21,34 +21,37 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           # Label 가져오기
           LABELS=$(gh issue view ${{ github.event.issue.number }} --json labels --jq '.labels[].name' || echo "")
           
+          echo "Labels found: $LABELS"
+          
           # bug report는 브랜치 생성 안 함
           if echo "$LABELS" | grep -qi "bug report"; then
-            echo "Bug report issue - 브랜치 생성을 건너뜁니다."
+            echo "Bug report issue - skipping branch creation."
             echo "SKIP_BRANCH=true" >> $GITHUB_ENV
             exit 0
           fi
           
-          # [기능코드] 패턴 찾기 (FEAT, REFACTOR, DOCS, FIX)
+          # feature, refactor, docs, fix, chore label 찾기
           FEATURE_CODE=""
-          for label in $LABELS; do
-            if [[ $label =~ ^\[([A-Z]+)\] ]]; then
-              CODE="${BASH_REMATCH[1]}"
-              # 허용된 코드만 처리
-              if [[ "$CODE" =~ ^(FEAT|REFACTOR|DOCS|FIX)$ ]]; then
-                FEATURE_CODE="$CODE"
-                break
-              fi
-            fi
-          done
+          if echo "$LABELS" | grep -qi "^feature$"; then
+            FEATURE_CODE="FEATURE"
+          elif echo "$LABELS" | grep -qi "^refactor$"; then
+            FEATURE_CODE="REFACTOR"
+          elif echo "$LABELS" | grep -qi "^docs$"; then
+            FEATURE_CODE="DOCS"
+          elif echo "$LABELS" | grep -qi "^fix$"; then
+            FEATURE_CODE="FIX"
+          elif echo "$LABELS" | grep -qi "^chore$"; then
+            FEATURE_CODE="CHORE"
+          fi
           
           # Label이 없으면 브랜치 생성 안 함
           if [ -z "$FEATURE_CODE" ]; then
-            echo "유효한 label이 없습니다 - 브랜치 생성을 건너뜁니다."
+            echo "No valid label found - skipping branch creation."
+            echo "Valid labels: feature, refactor, docs, fix, chore"
             echo "SKIP_BRANCH=true" >> $GITHUB_ENV
             exit 0
           fi
@@ -78,5 +81,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `✅ 브랜치가 자동으로 생성되었습니다: \`${branchName}\`\n\n작업을 시작하려면:\n\`\`\`bash\ngit fetch origin\ngit checkout ${branchName}\n\`\`\``
+              body: `✅ Branch created automatically: \`${branchName}\`\n\nTo start working:\n\`\`\`bash\ngit fetch origin\ngit checkout ${branchName}\n\`\`\``
             })

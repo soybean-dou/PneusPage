@@ -1,13 +1,19 @@
 name: Development Task
 description: Issue for new features, refactoring, documentation, bug fixes
 title: "[TYPE] Task title"
-labels: []
+labels: ["development"]
+assignees: []
 body:
   - type: markdown
     attributes:
       value: |
         ## Development Task Issue
-        Please select the appropriate label and provide detailed information.
+        Please select the appropriate task type and add the corresponding label manually:
+        - `[FEATURE]` → Add label **feature**
+        - `[REFACTOR]` → Add label **refactor**
+        - `[DOCS]` → Add label **docs**
+        - `[FIX]` → Add label **fix**
+        - `[CHORE]` → Add label **chore**
         
   - type: dropdown
     id: type
@@ -15,10 +21,11 @@ body:
       label: Task Type
       description: What kind of task is this?
       options:
-        - "[FEAT] New Feature"
-        - "[REFACTOR] Code Refactoring"
-        - "[DOCS] Documentation"
-        - "[FIX] Bug Fix"
+        - "feature - New Feature"
+        - "refactor - Code Refactoring"
+        - "docs - Documentation"
+        - "fix - Bug Fix"
+        - "chore - Maintenance/Chores"
     validations:
       required: true
 
