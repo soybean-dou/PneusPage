@@ -33,7 +33,7 @@
                 </thead>
                 <tbody>
                     {% for index, row in rows.iterrows() %}
-                    <tr class="result_row hover:bg-gray-50 {{ 'bg-green-50' if row['states'] == 'complete' else '' }}">
+                    <tr class="result_row hover:bg-gray-50 {{ 'bg-green-50 cursor-pointer' if row['states'] == 'complete' else '' }}" data-state="{{row['states']}}" data-job-id="{{row['job_id']}}">
                         <th class="font-medium">{{row["job_id"]}}</th>
                         <td>{{row["job_name"]}}</td>
                         <td>{{row["date"]}}</td>
