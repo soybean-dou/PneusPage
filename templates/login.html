@@ -3,14 +3,14 @@
 {% block title %}Login - PneusPage{% endblock %}
 
 {% block content %}
-<div class="flex-1 flex items-center justify-center bg-gradient-to-br from-purple-50 to-white">
-    <div class="card w-96 bg-base-100 shadow-xl">
-        <div class="card-body items-center text-center">
-            <h1 class="card-title text-4xl font-bold text-primary mb-4">Welcome to <span class="text-primary">PneusPage</span>!</h1>
-            <p class="text-base-content mb-6">Please sign in with your Google account to continue</p>
+<div class="flex-1 flex items-center justify-center bg-white">
+    <div class="card w-200 bg-white shadow-2xl border border-gray-100">
+        <div class="card-body items-center text-center px-8 py-10">
+            <h1 class="text-4xl font-bold text-primary mb-2">Welcome to PneusPage!</h1>
+            <p class="text-gray-600 mb-8 text-lg">Please sign in with your Google account to continue</p>
             <div class="card-actions">
-                <button class="btn btn-outline hover:bg-base-100" onclick="location.href='/login/google'">
-                    <img src="{{ url_for('static', filename='images/web_neutral_sq_ctn.svg') }}" class="h-10" alt="Sign in with Google">
+                <button class="bg-transparent border-0 p-0 transition-shadow duration-200 hover:shadow-xl rounded-lg" onclick="location.href='/login/google'">
+                    <img src="{{ url_for('static', filename='images/web_neutral_sq_ctn.svg') }}" class="h-12" alt="Sign in with Google">
                 </button>
             </div>
         </div>
