@@ -1,67 +1,39 @@
-<!-- templates/index.html -->
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>PneusPage</title>
-        <link rel="icon" href="../static/images/favicon.svg">
-        <link rel="stylesheet" href="{{ url_for('static', filename='node_modules/bootstrap/dist/css/bootstrap.min.css') }}">
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}">
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    </head>
-    <body>
-        <div>
-            <nav class="navbar navbar-expand-lg navbar-light bg-lg-purple border">
-                <div class="container-fluid">
-                  <a class="navbar-brand" id="page_name" href="/">
-                    <img src="../static/images/logo.svg" style="width: 100px;">
-                  </a>
-                  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                  </button>
-                  <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-                    <div class="navbar-nav">
-                      <a class="nav-link " href="/doc">DOCUMENTATION</a>
-                      <a class="nav-link" href="/submit">SUBMIT</a>
-                      <a class="nav-link" id="nav-result" href="#">RESULT</a>
-                      <a class="nav-link active" href="/mypage">MYPAGE</a>
+{% extends "layouts/base.html" %}
+
+{% block title %}My Page - PneusPage{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 flex-1">
+    <div class="max-w-4xl mx-auto">
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <div class="flex flex-col md:flex-row items-center gap-8">
+                    <div class="avatar">
+                        <div class="w-48 rounded-full">
+                            <img src="{{ url_for('static', filename='images/profile.svg') }}" alt="Profile">
+                        </div>
                     </div>
-                  </div>
-                  <div class="collapse navbar-collapse justify-content-end" id="collapsibleNavbar">
-                    <div class="navbar-nav">
-                      <li class="nav-item">
-                        {% if login == False %}
-                          <a class="nav-link" href="/login">Login</a>
-                        {% else %}
-                          <a class="nav-link" id="username" style="display: none;">{{username}}</a>
-                          <a class="nav-link" href="/logout">Logout</a>
-                        {% endif %}
-                      </li>
+                    <div class="flex-1 space-y-4">
+                        <h2 class="card-title text-2xl text-primary">User Information</h2>
+                        <div class="space-y-2">
+                            <div class="flex gap-2">
+                                <span class="font-semibold">NAME:</span>
+                                <span>{{ username }}</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="font-semibold">E-Mail:</span>
+                                <span>{{ email }}</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="font-semibold">JOIN DATE:</span>
+                                <span>{{ join_date }}</span>
+                            </div>
+                        </div>
                     </div>
-                  </div>
                 </div>
-            </nav>
-            <div class="container">
-              <div class="center-align">
-                <div>
-                  <img src="/static/images/profile.svg" style="width:300;height:300px;" alt="profile">
-                  <div style="display: inline-block" id="user_info">
-                    <div id="user_name">NAME : {{ username }}</div>
-                    <div id="email">E-Mail : {{ email }}</div>
-                    <div id="join_date">JOIN DATE : {{ join_date }}</div>
-                  </div>
-                </div>
-              </div>  
             </div>
-            <footer class="text-center text-lg-start bg-light text-muted">
-              <div class="text-center p-4" style="background-color: rgba(0, 0, 0, 0.05);">
-                © 2024 Copyright:
-                <a class="text-reset fw-bold" href="https://lab.minholee.net/">Minho Lee LAB</a> @Dongguk univ.
-              </div>
-            </footer>
         </div>
-        
-        <script src="/static/js/common.js"></script>
-        <script src="https://code.jquery.com/jquery-latest.js"></script>
-        <script src="{{ url_for('static', filename='node_modules/bootstrap/dist/js/bootstrap.min.js') }}"></script>
-    </body>
-</html>
+    </div>
+</div>
+{% endblock %}
+

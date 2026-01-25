@@ -6,7 +6,7 @@
 
 @layer base {
   body {
-    @apply font-['Noto_Sans_KR',sans-serif] bg-base-100;
+    @apply font-['Noto_Sans_KR',sans-serif] bg-white;
   }
 }
 
@@ -29,5 +29,28 @@
   
   .table-custom {
     @apply table table-zebra w-full;
+  }
+}
+
+@layer utilities {
+  /* 기존 Bootstrap 스타일에서 필요한 커스텀 유틸리티 */
+  .result_row.complete {
+    @apply bg-success/10;
+  }
+  
+  .result_row:hover {
+    @apply bg-base-200 cursor-pointer;
+  }
+  
+  /* doc.html, detail.html에서 사용하는 클래스들 (일단 Bootstrap 유지를 위해) */
+  .doc_img {
+    max-width: 100%;
+    height: auto;
+    margin: 1rem 0;
+  }
+  
+  .explain_area {
+    line-height: 1.8;
+    margin: 1rem 0;
   }
 }

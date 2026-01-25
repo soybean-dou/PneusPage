@@ -1,0 +1,120 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html data-theme="pneumo">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PneusPage</title>
+        <link rel="icon" href="../static/images/favicon.svg">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+    </head>
+    <body class="min-h-screen flex flex-col bg-white">
+        <!-- Navbar -->
+        <nav class="navbar bg-primary text-white shadow-lg">
+            <div class="navbar-start">
+                <div class="dropdown">
+                    <label tabindex="0" class="btn btn-ghost lg:hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" />
+                        </svg>
+                    </label>
+                    <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+                        <li><a href="/doc" class="text-base-content">DOCUMENTATION</a></li>
+                        {% if login == True %}
+                            <li><a href="/submit" class="text-base-content">SUBMIT</a></li>
+                            <li><a id="nav-result" href="#" class="text-base-content">RESULT</a></li>
+                            <li><a href="/mypage" class="text-base-content">MYPAGE</a></li>
+                        {% endif %}
+                    </ul>
+                </div>
+                <a href="/" class="btn btn-ghost text-xl lg:text-3xl font-bold font-['Raleway',sans-serif]">
+                    <img src="../static/images/logo.svg" class="h-8 lg:h-12">
+                </a>
+            </div>
+            <div class="navbar-center hidden lg:flex">
+                <ul class="menu menu-horizontal px-1 text-sm">
+                    <li><a href="/doc" class="hover:bg-white/20">DOCUMENTATION</a></li>
+                    {% if login == True %}
+                        <li><a href="/submit" class="hover:bg-white/20">SUBMIT</a></li>
+                        <li><a id="nav-result" href="#" class="hover:bg-white/20">RESULT</a></li>
+                        <li><a href="/mypage" class="hover:bg-white/20">MYPAGE</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div class="navbar-end">
+                {% if login == False %}
+                    <a id="login" href="/login" class="btn btn-secondary btn-sm text-white">Login</a>
+                {% else %}
+                    <span id="user_id" class="hidden">{{user_key}}</span>
+                    <a id="logout" href="/logout" class="btn btn-ghost btn-sm hover:bg-white/20">Logout</a>
+                {% endif %}
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <div class="flex-1 relative bg-white">
+            <div class="absolute inset-0 bg-gradient-to-br from-purple-100 to-purple-50"></div>
+            <img class="absolute inset-0 w-full h-full object-cover opacity-5" src="/static/images/cdc-QEU-QgIOJKA-unsplash.png" alt="background">
+            
+            <div class="container mx-auto px-4 relative z-10 h-full flex items-center">
+                <div class="max-w-4xl mx-auto text-center space-y-6 py-20">
+                    <!--<div class="alert alert-warning shadow-lg mb-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div class="text-left">
+                            <h3 class="font-bold">Important Notice</h3>
+                            <div class="text-sm">Server maintenance from Feb 17-23, 2025. Service may be unstable.</div>
+                        </div>
+                    </div>-->
+                    
+                    <h1 class="text-5xl md:text-7xl font-bold text-purple-600 font-['Raleway',sans-serif]">
+                        Welcome to <span class="text-purple-500">PneusPage</span>!
+                    </h1>
+                    
+                    <div class="divider"></div>
+                    
+                    <div class="prose lg:prose-xl mx-auto">
+                        <h2 class="text-2xl md:text-3xl font-semibold text-gray-800">
+                            <span class="text-purple-600 font-bold">PNEU</span>moniae 
+                            <span class="text-purple-600 font-bold">S</span>equence-based 
+                            <span class="text-purple-600 font-bold">P</span>athogenic 
+                            <span class="text-purple-600 font-bold">A</span>nalysis using 
+                            <span class="text-purple-600 font-bold">GE</span>nome
+                        </h2>
+                        
+                        <div class="text-left space-y-3 mt-8 text-base md:text-lg text-gray-700">
+                            <p class="flex items-start gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span><b>PneusPage</b> is a web service that analyzes Whole Genome Sequence data about <i>S. pneumoniae.</i></span>
+                            </p>
+                            <p class="flex items-start gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>After logging in, click submit to upload your WGS data to the web server.</span>
+                            </p>
+                            <p class="flex items-start gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>You can get a variety of information about <i>S. pneumoniae</i>.</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer footer-center p-4 bg-base-200 text-base-content">
+            <aside>
+                <p>© 2024 Copyright: <a class="link link-hover font-bold" href="https://lab.minholee.net/">Minho Lee LAB</a> @Dongguk univ.</p>
+            </aside>
+        </footer>
+        
+        <script src="/static/js/common.js"></script>
+    </body>
+</html>

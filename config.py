@@ -101,6 +101,12 @@ class DevelopmentConfig(Config):
     """Development configuration."""
     DEBUG = True
     SQLALCHEMY_ECHO = True
+    
+    # Override Google OAuth redirect URI for local development
+    GOOGLE_REDIRECT_URI = os.getenv(
+        'GOOGLE_REDIRECT_URI',
+        'http://localhost:5050/callback'
+    )
 
 
 class ProductionConfig(Config):

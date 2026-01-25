@@ -1,4 +1,8 @@
-<!-- templates/index.html -->
+{% extends "layouts/base.html" %}
+
+{% block title %}Results - PneusPage{% endblock %}
+
+{% block content %}
 {% with messages = get_flashed_messages() %}
   {% if messages %}
     <script>
@@ -7,96 +11,66 @@
   {% endif%}
 {% endwith %}
 
-<!DOCTYPE html>
 <meta http-equiv="refresh" content="30">
-<html>
-    <head>
-        <title>PneusPage</title>
-        <link rel="icon" href="../static/images/favicon.svg">
-        <link rel="stylesheet" href="{{ url_for('static', filename='node_modules/bootstrap/dist/css/bootstrap.min.css') }}">
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}">
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    </head>
-    <body>
-        <div>
-            <nav class="navbar navbar-expand-lg navbar-light bg-lg-purple border">
-                <div class="container-fluid">
-                  <a class="navbar-brand" id="page_name" href="/">
-                    <img src="../static/images/logo.svg" style="width: 100px;">
-                  </a>
-                  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                  </button>
-                  <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-                    <div class="navbar-nav">
-                      <a class="nav-link " href="/doc">DOCUMENTATION</a>
-                      {% if login == True %}
-                      <a class="nav-link" href="/submit">SUBMIT</a>
-                      <a class="nav-link active" id="nav-result" href="#">RESULT</a>
-                      <a class="nav-link" href="/mypage">MYPAGE</a>
-                      {% endif %}
-                    </div>
-                  </div>
-                  <div class="collapse navbar-collapse justify-content-end" id="collapsibleNavbar">
-                    <div class="navbar-nav">
-                      <li class="nav-item">
-                        {% if login == False %}
-                          <a class="nav-link" href="/login">Login</a>
-                        {% else %}
-                          <a class="nav-link" id="user_id" style="display: none;">{{user_id}}</a>
-                          <a class="nav-link" href="/logout">Logout</a>
-                        {% endif %}
-                      </li>
-                    </div>
-                </div>
-            </nav>
-        </div>
-        <div class="container">
-          <div class="center-align" >
-            <div class="result_area">
-              <div class="intitle-1">Job List</div>
-              <table class="table">
+
+<div class="container mx-auto px-4 py-8 flex-1">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-semibold text-primary mb-6">Job List</h1>
+        
+        {% if rows is not none and rows|length > 0 %}
+        <div class="overflow-x-auto bg-white rounded-lg shadow">
+            <table class="table w-full">
                 <thead>
-                  <tr>
-                    <th scope="col">#</th>
-                    <!--<th scope="col">User Name</th>-->
-                    <th scope="col">Job Name</th>
-                    <th scope="col">Date</th>
-                    <th scope="col">Input file</th>
-                    <th scope="col">Species</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Delete</th>
-                  </tr>
+                    <tr class="bg-base-200">
+                        <th class="bg-gray-100">#</th>
+                        <th class="bg-gray-100">Job Name</th>
+                        <th class="bg-gray-100">Date</th>
+                        <th class="bg-gray-100">Input file</th>
+                        <th class="bg-gray-100">Species</th>
+                        <th class="bg-gray-100">Status</th>
+                        <th class="bg-gray-100">Delete</th>
+                    </tr>
                 </thead>
                 <tbody>
-                  {% for index, row in rows.iterrows() %}
-                  <tr class="result_row">
-                    <th scope="row">{{row["job_id"]}}</th>
-                    <!--<td>{{row["name"]}}</td>-->
-                    <td>{{row["job_name"]}}</td>
-                    <td>{{row["date"]}}</td>
-                    <td>{{row["input_file"]}}</td>
-                    <td>{{row["species"]}}</td>
-                    <td>{{row["states"]}}</td>
-                    <td><button type="button" class="btn-danger btn del_job">delete</button></td>
-                  </tr>
-                  {% endfor %}
+                    {% for index, row in rows.iterrows() %}
+                    <tr class="result_row hover:bg-gray-50 {{ 'bg-green-50' if row['states'] == 'complete' else '' }}">
+                        <th class="font-medium">{{row["job_id"]}}</th>
+                        <td>{{row["job_name"]}}</td>
+                        <td>{{row["date"]}}</td>
+                        <td>{{row["input_file"]}}</td>
+                        <td>{{row.get("species", "")}}</td>
+                        <td>
+                            {% if row['states'] == 'queue' %}
+                                <span class="inline-block px-3 py-1 text-sm font-semibold text-white bg-blue-500 rounded-full">{{row["states"]}}</span>
+                            {% elif row['states'] == 'running' %}
+                                <span class="inline-block px-3 py-1 text-sm font-semibold text-white bg-yellow-500 rounded-full">{{row["states"]}}</span>
+                            {% elif row['states'] == 'complete' %}
+                                <span class="inline-block px-3 py-1 text-sm font-semibold text-white bg-green-500 rounded-full">{{row["states"]}}</span>
+                            {% elif row['states'] == 'fail' %}
+                                <span class="inline-block px-3 py-1 text-sm font-semibold text-white bg-red-500 rounded-full">{{row["states"]}}</span>
+                            {% else %}
+                                <span class="inline-block px-3 py-1 text-sm font-semibold text-gray-700 bg-gray-200 rounded-full">{{row["states"]}}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-error btn-sm text-white del_job">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
-              </table>
-            </div>
-          </div>
+            </table>
         </div>
-        <footer class="text-center text-lg-start bg-light text-muted">
-          <div class="text-center p-4" style="background-color: rgba(0, 0, 0, 0.05);">
-            © 2024 Copyright:
-            <a class="text-reset fw-bold" href="https://lab.minholee.net/">Minho Lee LAB</a> @Dongguk univ.
-          </div>
-        </footer>
+        {% else %}
+        <div class="alert alert-info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span>No jobs found. Click <a href="/submit" class="link link-hover font-bold">SUBMIT</a> to create your first job!</span>
         </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
 
-        <script src="/static/js/common.js"></script>
-        <script src="/static/js/result.js"></script>
-        <script src="https://code.jquery.com/jquery-latest.js"></script>
-        <script src="{{ url_for('static', filename='node_modules/bootstrap/dist/js/bootstrap.min.js') }}"></script>
-    </body>
-</html>
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/result.js') }}"></script>
+{% endblock %}
+

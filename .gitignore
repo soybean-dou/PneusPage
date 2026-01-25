@@ -109,3 +109,5 @@ htmlcov/
 dmypy.json
 
 doc/
+
+client_secret*

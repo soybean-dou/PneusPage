@@ -14,8 +14,7 @@ body {
 }
 
 .inner{
-    height: 82dvh;
-    padding: 5dvh;
+    min-height: 80dvh;
 }
 
 .center-align{

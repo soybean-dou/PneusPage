@@ -75,10 +75,12 @@ except Exception as e:
 @app.route("/login")  #the page where the user can login
 def login():
     if protected():
-        is_logined=True
+        is_logined = True
+        user_key = session.get("user_key", "")
     else:
-        is_logined=False 
-    return render_template('login.html',login=is_logined)
+        is_logined = False
+        user_key = ""
+    return render_template('login.html', login=is_logined, user_key=user_key)
 
 @app.route("/login/google")  #the page where the user can login
 def login_with_google():
@@ -150,28 +152,28 @@ def protected():
 def index():
     if protected()!=False:
         print("login")
-        return render_template('index.html',login=True,user_key=session["user_key"])
+        return render_template('index.html', login=True, user_key=session["user_key"], active_page='home')
     else:
         print("logout")
-        return render_template('index.html',login=False)
+        return render_template('index.html', login=False, active_page='home')
 
 @app.route('/doc')
 def about():
     if protected()!=False:
         print("login")
-        return render_template('doc.html',login=True,user_key=session["user_key"])
+        return render_template('doc.html', login=True, user_key=session["user_key"], active_page='doc')
     else:
         print("logout")
-        return render_template('doc.html',login=False)
+        return render_template('doc.html', login=False, active_page='doc')
 
 @app.route('/submit')
 def submit():
     if protected()!=False:
         print("login")
-        return render_template('submit.html',login=True,user_key=session["user_key"])
+        return render_template('submit.html', login=True, user_key=session["user_key"], active_page='submit')
     else:
         print("logout")
-        return render_template('submit.html',login=False)
+        return render_template('submit.html', login=False, active_page='submit')
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -330,7 +332,7 @@ def result(user_key):
         # Get user's jobs
         db_df = JobService.get_user_jobs(user_key)
         
-        return render_template('result.html', rows=db_df, login=True, user_id=user_key)
+        return render_template('result.html', rows=db_df, login=True, user_key=user_key, active_page='result')
         
     except Exception as e:
         app.logger.error(f"Error displaying results: {e}")
@@ -394,6 +396,8 @@ def detail(user_key, job_key):
             species=species,
             key=job_key,
             user_id=user_key,
+            user_key=session.get('user_key', ''),
+            active_page='result',
             files=files,
             rows=db_info,
             sero_txt=sero_txt,
@@ -509,7 +513,10 @@ def mypage():
             'mypage.html',
             username=session["name"],
             email=session["email"],
-            join_date=join_date
+            join_date=join_date,
+            login=True,
+            user_key=session["user_key"],
+            active_page='mypage'
         )
     except Exception as e:
         app.logger.error(f"Error loading mypage: {e}")

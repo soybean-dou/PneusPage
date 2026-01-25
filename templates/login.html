@@ -1,67 +1,20 @@
-<!-- templates/index.html -->
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>PneusPage</title>
-    <link rel="icon" href="../static/images/favicon.svg">
-    <link rel="stylesheet" href="{{ url_for('static', filename='node_modules/bootstrap/dist/css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  </head>
-  <body>
-    <div>
-        <nav class="navbar navbar-expand-lg navbar-light bg-lg-purple border">
-            <div class="container-fluid">
-              <a class="navbar-brand" id="page_name" href="/">
-                <img src="../static/images/logo.svg" style="width: 100px;">
-              </a>
-              <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-              </button>
-              <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-                <div class="navbar-nav">
-                  <a class="nav-link active" href="/doc">DOCUMENTATION</a>
-                  {% if login == True %}
-                  <a class="nav-link" href="/submit">SUBMIT</a>
-                  <a class="nav-link" id="nav-result" href="#">RESULT</a>
-                  <a class="nav-link" href="/mypage">MYPAGE</a>
-                  {% endif %}
-                </div>
-              </div>
-              <div class="collapse navbar-collapse justify-content-end" id="collapsibleNavbar">
-                <div class="navbar-nav">
-                  <li class="nav-item">
-                    {% if login == False %}
-                      <a id="login" class="nav-link" href="/login">Login</a>
-                    {% else %}
-                      <a class="nav-link" id="user_id" style="display: none;">{{user_key}}</a>
-                      <a id="logout" class="nav-link" href="/logout">Logout</a>
-                    {% endif %}
-                  </li>
-                </div>
-              </div>
+{% extends "layouts/base.html" %}
+
+{% block title %}Login - PneusPage{% endblock %}
+
+{% block content %}
+<div class="flex-1 flex items-center justify-center bg-gradient-to-br from-purple-50 to-white">
+    <div class="card w-96 bg-base-100 shadow-xl">
+        <div class="card-body items-center text-center">
+            <h1 class="card-title text-4xl font-bold text-primary mb-4">Welcome to <span class="text-primary">PneusPage</span>!</h1>
+            <p class="text-base-content mb-6">Please sign in with your Google account to continue</p>
+            <div class="card-actions">
+                <button class="btn btn-outline hover:bg-base-100" onclick="location.href='/login/google'">
+                    <img src="{{ url_for('static', filename='images/web_neutral_sq_ctn.svg') }}" class="h-10" alt="Sign in with Google">
+                </button>
             </div>
-        </nav>
-        <div class="container inner">
-          <div class="row align-items-center">
-            <div class="login-prompt">
-              <h1 class="title" style="font-weight: bold;">Welcome to <a id="page_name">PneusPage</a>!</h1>
-              <button class="btn google-btn" onclick="location.href='/login/google'">
-                <img  src="/static/images/web_neutral_sq_ctn.svg" aria-label="login with google"></img >
-              </button>
-            </div>
-          </div>
         </div>
-        <footer class="text-center text-lg-start bg-light text-muted">
-          <div class="text-center p-4" style="background-color: rgba(0, 0, 0, 0.05);">
-            © 2024 Copyright:
-            <a class="text-reset fw-bold" href="https://lab.minholee.net/">Minho Lee LAB</a> @Dongguk univ.
-          </div>
-        </footer>
     </div>
-    
-    <script src="/static/js/common.js"></script>
-    <script src="https://code.jquery.com/jquery-latest.js"></script>
-    <script src="{{ url_for('static', filename='node_modules/bootstrap/dist/js/bootstrap.min.js') }}"></script>
-  </body>
-</html>
+</div>
+{% endblock %}
+
