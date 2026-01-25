@@ -3,7 +3,7 @@
 {% block title %}Submit - PneusPage{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 flex-1">
+<div class="container mx-auto px-4 py-8">
     <div class="max-w-4xl mx-auto">
         <h1 class="text-3xl font-semibold text-primary mb-6">Upload Sequence file</h1>
         
@@ -23,9 +23,9 @@
 
         <!-- Single Upload Form -->
         <div id="single-upload">
-            <div class="alert alert-info mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <div>
+            <div class="alert mb-4 bg-sky-50 border border-sky-200">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6 text-sky-600"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <div class="text-gray-700">
                     <div>You can get result by uploading job name and <b>fastq file(paired-end)</b>.</div>
                     <div>You can check the results with a simple example file here. (<a href="/submit/forward/download" class="link link-hover">forward</a>, <a href="/submit/reverse/download" class="link link-hover">reverse</a>) Try it yourself.</div>
                 </div>
@@ -58,9 +58,9 @@
 
         <!-- Multiple Upload Form -->
         <div id="multiple-upload" style="display: none;">
-            <div class="alert alert-info mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <div>
+            <div class="alert mb-4 bg-sky-50 border border-sky-200">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6 text-sky-600"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <div class="text-gray-700">
                     <div>You can submit multiple jobs by uploading a configuration table file.</div>
                     <div><a href="/submit/tsv/download" class="link link-hover">Here</a> is an example file.</div>
                 </div>

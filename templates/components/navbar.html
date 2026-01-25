@@ -1,5 +1,5 @@
 <!-- Navbar Component -->
-<nav class="navbar shadow-lg h-[15vh] min-h-[80px]" style="background-color: #f3deff;">
+<nav class="navbar shadow-lg h-[10vh] min-h-[80px]" style="background-color: #e8deff;">
     <div class="navbar-start">
         <div class="dropdown">
             <label tabindex="0" class="btn btn-ghost lg:hidden">
@@ -8,11 +8,11 @@
                 </svg>
             </label>
             <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-white rounded-box w-52">
-                <li><a href="/doc" class="text-gray-700 hover:bg-purple-100 {% if active_page == 'doc' %}bg-purple-100{% endif %}">DOCUMENTATION</a></li>
+                <li><a href="/doc" class="text-gray-700 hover:bg-gray-100 {% if active_page == 'doc' %}font-bold{% endif %}">DOCUMENTATION</a></li>
                 {% if login == True %}
-                    <li><a href="/submit" class="text-gray-700 hover:bg-purple-100 {% if active_page == 'submit' %}bg-purple-100{% endif %}">SUBMIT</a></li>
-                    <li><a id="nav-result-mobile" href="#" class="text-gray-700 hover:bg-purple-100 {% if active_page == 'result' %}bg-purple-100{% endif %}">RESULT</a></li>
-                    <li><a href="/mypage" class="text-gray-700 hover:bg-purple-100 {% if active_page == 'mypage' %}bg-purple-100{% endif %}">MYPAGE</a></li>
+                    <li><a href="/submit" class="text-gray-700 hover:bg-gray-100 {% if active_page == 'submit' %}font-bold{% endif %}">SUBMIT</a></li>
+                    <li><a id="nav-result-mobile" href="#" class="text-gray-700 hover:bg-gray-100 {% if active_page == 'result' %}font-bold{% endif %}">RESULT</a></li>
+                    <li><a href="/mypage" class="text-gray-700 hover:bg-gray-100 {% if active_page == 'mypage' %}font-bold{% endif %}">MYPAGE</a></li>
                 {% endif %}
             </ul>
         </div>
@@ -22,11 +22,11 @@
     </div>
     <div class="navbar-center hidden lg:flex">
         <ul class="menu menu-horizontal px-1 text-sm">
-            <li><a href="/doc" class="text-gray-700 hover:bg-purple-200 {% if active_page == 'doc' %}bg-purple-200{% endif %}">DOCUMENTATION</a></li>
+            <li><a href="/doc" class="text-gray-700 hover:bg-gray-100 {% if active_page == 'doc' %}font-bold{% endif %}">DOCUMENTATION</a></li>
             {% if login == True %}
-                <li><a href="/submit" class="text-gray-700 hover:bg-purple-200 {% if active_page == 'submit' %}bg-purple-200{% endif %}">SUBMIT</a></li>
-                <li><a id="nav-result" href="#" class="text-gray-700 hover:bg-purple-200 {% if active_page == 'result' %}bg-purple-200{% endif %}">RESULT</a></li>
-                <li><a href="/mypage" class="text-gray-700 hover:bg-purple-200 {% if active_page == 'mypage' %}bg-purple-200{% endif %}">MYPAGE</a></li>
+                <li><a href="/submit" class="text-gray-700 hover:bg-gray-100 {% if active_page == 'submit' %}font-bold{% endif %}">SUBMIT</a></li>
+                <li><a id="nav-result" href="#" class="text-gray-700 hover:bg-gray-100 {% if active_page == 'result' %}font-bold{% endif %}">RESULT</a></li>
+                <li><a href="/mypage" class="text-gray-700 hover:bg-gray-100 {% if active_page == 'mypage' %}font-bold{% endif %}">MYPAGE</a></li>
             {% endif %}
         </ul>
     </div>
@@ -35,7 +35,7 @@
             <a id="login" href="/login" class="btn btn-sm text-white" style="background-color: #663399;">Login</a>
         {% else %}
             <span id="user_id" class="hidden">{{ user_key }}</span>
-            <a id="logout" href="/logout" class="btn btn-ghost btn-sm text-gray-700 hover:bg-purple-200">Logout</a>
+            <a id="logout" href="/logout" class="btn btn-ghost btn-sm text-gray-700 hover:bg-gray-100">Logout</a>
         {% endif %}
     </div>
 </nav>

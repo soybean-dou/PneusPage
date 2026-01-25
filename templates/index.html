@@ -4,56 +4,37 @@
 
 {% block content %}
 <!-- Hero Section -->
-<div class="relative bg-white h-full flex items-center justify-center">
-    <img class="absolute inset-0 w-full h-full object-cover opacity-5" src="{{ url_for('static', filename='images/cdc-QEU-QgIOJKA-unsplash.png') }}" alt="background">
+<div class="relative bg-white h-full flex items-center overflow-hidden">
+    <!-- Background Image -->
+    <img src="{{ url_for('static', filename='images/cdc-QEU-QgIOJKA-unsplash.png') }}" 
+         class="absolute right-0 top-1/2 -translate-y-1/2 h-full w-auto opacity-15 pointer-events-none z-0" 
+         alt="S. pneumoniae">
     
-    <div class="container mx-auto px-4 relative z-10">
-        <div class="max-w-4xl mx-auto text-center space-y-6">
-            <!--<div class="alert alert-warning shadow-lg mb-8">
-                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <div class="text-left">
-                    <h3 class="font-bold">Important Notice</h3>
-                    <div class="text-sm">Server maintenance from Feb 17-23, 2025. Service may be unstable.</div>
-                </div>
-            </div>-->
-            
-            <h1 class="text-5xl md:text-7xl font-bold text-primary font-['Raleway',sans-serif]">
+    <!-- Content -->
+    <div class="container mx-auto px-8 py-12 relative z-10">
+        <div class="space-y-6">
+            <h1 class="text-5xl md:text-4xl font-bold text-gray-800 page-title">
                 Welcome to <span class="text-primary">PneusPage</span>!
             </h1>
             
+            <h2 class="text-2xl md:text-3xl font-semibold text-gray-700 leading-relaxed">
+                <span class="text-primary font-bold">PNEU</span>oniae 
+                <span class="text-primary font-bold">S</span>equence-based 
+                <span class="text-primary font-bold">P</span>athogenic 
+                <span class="text-primary font-bold">A</span>nalysis using 
+                <span class="text-primary font-bold">GE</span>nome
+            </h2>
             <div class="divider"></div>
-            
-            <div class="prose lg:prose-xl mx-auto">
-                <h2 class="text-2xl md:text-3xl font-semibold text-gray-800">
-                    <span class="text-primary font-bold">PNEU</span>moniae 
-                    <span class="text-primary font-bold">S</span>equence-based 
-                    <span class="text-primary font-bold">P</span>athogenic 
-                    <span class="text-primary font-bold">A</span>nalysis using 
-                    <span class="text-primary font-bold">GE</span>nome
-                </h2>
-                
-                <div class="text-left space-y-3 mt-8 text-base md:text-lg text-gray-700">
-                    <p class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span><b>PneusPage</b> is a web service that analyzes Whole Genome Sequence data about <i>S. pneumoniae.</i></span>
-                    </p>
-                    <p class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>After logging in, click submit to upload your WGS data to the web server.</span>
-                    </p>
-                    <p class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>You can get a variety of information about <i>S. pneumoniae</i>.</span>
-                    </p>
-                </div>
+            <div class="space-y-3 text-base md:text-lg text-gray-700">
+                <p>
+                    <span class="font-bold text-gray-900">PneusPage</span> is a web service that analyzes Whole Genome Sequence data about <i>S. pneumoniae</i>.
+                </p>
+                <p>
+                    After logging in, click submit to upload your WGS data to the web server.
+                </p>
+                <p>
+                    You can get a variety of information about <i>S. pneumoniae</i>.
+                </p>
             </div>
         </div>
     </div>
